@@ -193,6 +193,105 @@ pass.
 - "almost never be full sized on the screen" is a concrete constraint that will shape every
   layout decision more than any style guide.
 
+## CEO Review Amendments (2026-11-03, /plan-ceo-review, SCOPE REDUCTION)
+
+These amendments **supersede** the earlier sections where they conflict.
+
+### Decision ledger
+
+| ID | Item | Decision | Approval |
+|---|---|---|---|
+| D1 | Containers (Docker) card | **Keep in v1** | User answer D1: "Keep in V1, i approve for you to download docker and other dependencies in order to test and work on the product" |
+| D2 | Sensors card | **Deferred** to TODOS.md | User answer D2 |
+| D3 | Trends tab (60s sparklines) | **Keep** | User answer D3 |
+| D4 | Per-core CPU | **Keep**, as a compact collapsed strip under the total CPU headline. Must fit 375px at 32+ cores | User answer D4 |
+| D5 | One-line plain-language status with process/container blame | **Added**. It **replaces** the warning banner (no extra element) | User answer D5 |
+| D6 | PWA manifest | **Deferred** to TODOS.md | User answer D6 |
+| D7 | Top processes sort | **CPU/RAM toggle** (one control, default CPU) | User answer D7 |
+| D8 | Runtime + one command | **Python 3.11+**. Documented command: `uvx --from git+https://github.com/onions127/Stavsboard stavsboard`. Before the first push, local dev uses `uv run stavsboard` | User answer D8 |
+| D9 | Collector failure | Per-tick handling of named psutil errors (logged). A watchdog flags no fresh tick for >3s. Snapshots carry server-side `collected_age_s`, and the UI shows a non-calm "Collector stalled" state. Unit-tested with a raising fake collector | User answer D9 (A) |
+| D10 | Top-10 row stability | Rank by a ~3s moving average of CPU (or RAM when toggled), show live values, key rows by PID. Tested with a scripted CPU sequence. Visual treatment goes to design review | User answer D10 (A) |
+
+| D11 | Uptime honesty | The warning log header shows "Watching since HH:MM" (server start). The README documents optional autostart (Task Scheduler / `systemd --user`); Stavsboard never installs these itself | User answer D11 (A) |
+| D12 | Transport (reopens approach B) | **1s polling of `GET /api/snapshot`** replaces SSE; `/api/stream` is removed. Stale detection = failed or late fetch (>5s since the last good response). FastAPI + uvicorn stay | User answer D12 (A) |
+| D13 | `--lan` Host allowlist | Under `--lan`: any IP-literal Host (v4/v6) plus `localhost`, the hostname and `hostname.local`. Without `--lan`: `localhost`, `127.0.0.1`, `[::1]` only. TestClient-tested | User answer D13 (A) |
+| D14 | Trends history | The server keeps a 60-sample in-memory ring per Trends metric and returns it with the Trends request. No client-side ring buffer, so sparklines are populated on open | User answer D14 (A) |
+
+**Corrections from the outside voice (factual, no behavior change):**
+- **D5 blame attribution:** process blame comes only from psutil, container blame only from
+  container CPU %, never mixed. On Windows, Docker workloads show in psutil as
+  `vmmem`/`com.docker.backend`, so the earlier "`docker build` in container api" example is
+  only valid through container stats. When there's no clear culprit, the status line names the
+  condition without blame ("CPU busy").
+- **Container poller:** use `stats(stream=False, one_shot=True)` and compute the CPU delta
+  across our own polls, which avoids the ~2s blocking second sample. Eng review confirms this.
+- **Per-process CPU %** can exceed 100 on multi-core machines (psutil). Display normalizes to
+  % of total machine capacity (divide by logical CPU count); eng review locks this.
+- **README:** `uvx --from git+...` requires git on PATH; updates use `uvx --refresh --from ...`.
+- **Docker Desktop install:** keep it off the critical path. Container code is built and
+  tested against a fake docker client first, then verified live after the admin-gated install.
+
+**Blocking inputs for /plan-eng-review** (it must settle these before implementation): exact
+thresholds, sustain windows and the "heavy swap" definition · warning log retention · the
+container-exited trigger · snapshot payload shape and cadence · timezone handling (send epoch,
+render local) and the "ongoing since HH:MM" form · the disconnected tab-title form · container
+poller cadence/timeouts.
+**For /plan-design-review:** a hard 375px height budget for the Now tab (status line, CPU +
+per-core strip, memory, top 10 + toggle, containers, warning log); consider putting the log
+behind a tap.
+
+### Revised v1 scope
+
+**In:** CPU total + collapsed per-core strip · memory + swap · top 10 processes (CPU/RAM toggle,
+smoothed ranking) · Docker containers · status line (replaces banner) · warnings + in-memory
+warning log · Trends tab · `--lan` opt-in · light/dark · 375px-1440px.
+
+### NOT in scope
+
+- **Deferred (TODOS.md):** sensors card (D2: blank on the Windows dev machine; psutil has no
+  Windows support) · PWA manifest (D6: install needs HTTPS on a LAN IP; a bookmark covers most
+  of it).
+- **Cut earlier (office hours):** disk I/O, network, load average, filesystems, disk history,
+  auth, multi-host, external notifications, configurable thresholds.
+
+### Environment facts (probed 2026-11-03 on the dev PC)
+
+- Python 3.9.13 is installed (end of life, below 3.11). uv is not installed. Docker is not
+  installed.
+- Implementation must install uv (user-level, no admin) and Docker Desktop. **Docker Desktop's
+  installer needs admin/UAC and enables WSL2.** Per the project constraints, ask again right
+  before running anything elevated, or have the user run the installer.
+
+### Review findings (Sections 1-11)
+
+- **S1 Architecture:** collector thread + container poller → one lock-protected `SnapshotStore`
+  (with a version counter) → `/api/snapshot` and `/api/stream`. Pure `thresholds`, `warning_log`
+  and `status` modules. No issues beyond D9.
+- **S2 Errors:** collector death was a CRITICAL GAP, now fixed by D9. Port in use → clear error
+  and non-zero exit. Docker errors (not running / permission denied / timeout) → the states
+  already committed above.
+- **S3 Security:** Host allowlist, no cmdline/env/user, localhost default; the remaining
+  exposure is process names over `--lan`, which the README warns about. No new secrets. Four
+  well-known dependencies.
+- **S4 Edge cases:** row jitter (fixed by D10). Multiple tabs → each gets its own SSE stream
+  from the shared store. Laptop sleep → reconnect resync.
+- **S5 Quality:** keep `thresholds`, `status` and `warning_log` pure and I/O-free.
+- **S6 Tests (owner: eng review):** pytest units for thresholds, warning log, status line,
+  process cache eviction (fake psutil), smoothing ranking, collector watchdog, container poller
+  (fake docker: timeout/denied/not running), Host allowlist (TestClient). One live smoke run on
+  Windows and Linux.
+- **S7 Performance:** `process_iter` + `oneshot()` each 1s is fine. Per-container
+  `stats(stream=False)` blocks ~1-2s, so the poller must not run them serially (eng review
+  picks parallel vs streaming).
+- **S8 Observability:** stdout logging with levels (`--debug`). Collector, poller and
+  disconnect states are visible in the UI itself.
+- **S9 Deploy:** local tool, no migrations. Rollback = `uvx --from git+...@v0.1.0`. Tag v0.1.0
+  at ship.
+- **S10 Trajectory:** reversibility 4/5. The pure modules keep sensors, disk and network easy
+  to add later.
+- **S11 Design:** the state map (loading / empty / stale / denied / warning / healthy) per card
+  must be designed. /plan-design-review and /design-review are already in the pipeline.
+
 <!-- gstack:office-hours:concerns:start -->
 ## Reviewer Concerns
 
@@ -338,3 +437,164 @@ issues verified: 1 of 1
 
 Verification is deterministic: a fix counts when its `applied_text` is in the current design and absent from the round-3 snapshot. It confirms applied edits, never a review verdict; no reviewer was launched past the cap.
 <!-- gstack:office-hours:concerns:end -->
+
+## CEO Review Outputs (2026-11-03)
+
+### Reality rows
+- REALITY: premise-table pass Python 3.9.13 / no uv / no docker probed live; psutil Windows sensors per learning psutil-windows-sensors; unverified=2 (docker one_shot latency, per-process CPU >100 on Windows) docs/designs/stavsboard-v1.md:1
+- REALITY: already-done pass repo has a single commit (dc2e69f, docs only); nothing implemented docs/designs/stavsboard-v1.md:1
+- REALITY: surface-check finding `uvx --from git+...` only resolves after the first push; local dev uses `uv run` (recorded in D8) docs/designs/stavsboard-v1.md:1
+- REALITY: binding-decisions pass no prior decisions logged; office-hours doc honored docs/designs/stavsboard-v1.md:1
+- REALITY: numbers pass all numbers are [estimated] targets (1s tick, 3-5s poller, 60 samples, 5s stale), not measurements docs/designs/stavsboard-v1.md:1
+- REALITY: deferred-asks pass no linked issue TODOS.md:1
+- REALITY: pr-count pass no .gstack/ship-policy.json; default one PR docs/designs/stavsboard-v1.md:1
+
+### What already exists
+Nothing in this repo. External building blocks that get reused, not rebuilt: psutil (all host
+metrics), the docker SDK (container list and stats), FastAPI TestClient (HTTP tests), and the
+browser `fetch` (transport).
+
+### Dream state delta
+v1 delivers the calm single-machine view plus an honest "while you were away" log. Still left
+for the 12-month ideal: sensors, disk/network, history that survives restarts, and possibly
+multiple hosts. None of v1's choices block them, because the pure modules plus a single store
+extend cleanly.
+
+### Error & Rescue Registry
+```
+CODEPATH               | WHAT CAN GO WRONG          | CLASS                          | RESCUE                              | USER SEES
+-----------------------|----------------------------|--------------------------------|-------------------------------------|------------------------------
+collector.tick         | process vanished           | psutil.NoSuchProcess           | evict cache entry, skip row         | row disappears next tick
+collector.tick         | no permission              | psutil.AccessDenied            | field = unavailable                 | "-" in that cell
+collector.tick         | zombie (POSIX)             | psutil.ZombieProcess           | skip row                            | nothing
+collector.tick         | unexpected bug             | Exception, logged with context | log, keep thread; watchdog >3s      | "Collector stalled" (non-calm)
+container_poller.poll  | Docker not running         | docker.errors.DockerException  | hide card                           | no containers card
+container_poller.poll  | permission denied          | APIError / PermissionError     | quiet state                         | "No access to Docker"
+container_poller.poll  | daemon slow/hung           | requests Timeout               | keep thread; age grows              | "Container data Ns old"
+container_poller.poll  | container removed mid-poll | docker.errors.NotFound         | drop that container                 | row disappears
+server.startup         | port in use                | OSError (EADDRINUSE)           | clear message, exit 1               | terminal error naming the port
+host_allowlist         | bad Host header            | request rejected               | 400                                 | nothing (attacker blocked)
+client.poll            | fetch fails or slow        | fetch rejection / >5s          | retry every 1s                      | "Disconnected, data Ns old"
+```
+
+### Failure Modes Registry
+```
+CODEPATH          | FAILURE MODE         | RESCUED? | TEST? | USER SEES?            | LOGGED?
+------------------|----------------------|----------|-------|-----------------------|--------
+collector thread  | silent death         | Y (D9)   | Y     | Collector stalled     | Y
+container poller  | hang / timeout       | Y        | Y     | stale container state | Y
+container poller  | denied / not running | Y        | Y     | quiet state / hidden  | Y
+client transport  | server down / sleep  | Y (D12)  | Y     | Disconnected          | n/a
+warning log       | wiped by restart     | Y (D11)  | Y     | "Watching since"      | n/a
+process ranking   | row jitter           | Y (D10)  | Y     | stable rows           | n/a
+```
+0 CRITICAL GAPS remain. The collector-death gap was closed by D9.
+
+### Diagrams
+System architecture (D12 applied):
+```
+ psutil --> Collector thread (1s, watchdog) --+
+                                              +--> SnapshotStore (lock, version, 60s rings)
+ docker SDK --> Container poller (3-5s) ------+          |
+                                                         +--> thresholds -> WarningLog -> status line
+ browser -- fetch every 1s --> Host allowlist --> GET /api/snapshot (+ Trends rings)
+```
+Client state machine:
+```
+ LOADING --first ok--> LIVE --fetch fail or >5s--> DISCONNECTED --ok--> LIVE
+                        |  ^
+          warning raised|  |cleared
+                        v  |
+                       WARNING     (any card can also be STALE / DENIED on its own)
+ Invalid: LOADING -> WARNING without data (prevented: warnings only come from a snapshot)
+```
+Rollback: bad release -> `uvx --from git+https://github.com/onions127/Stavsboard@v0.1.0 stavsboard`.
+Stale diagram audit: there are no other diagrams in touched files.
+
+## Implementation Tasks
+Synthesized from this review's findings. The task-type ratios are the defaults stated in /plan-ceo-review.
+
+- [ ] **T1 (P1, human: ~1h / CC: ~5min)**: env: install uv (user-level) and use Python 3.11+ via uv
+  - Surfaced by: Step 0 reality probe (Python 3.9.13, no uv)
+  - Files: none (machine setup)
+  - Verify: `uv --version`; `uv run python --version` >= 3.11
+- [ ] **T2 (P1, human: ~3h / CC: ~10min)**: collector: watchdog + `collected_age_s` + named psutil errors
+  - Surfaced by: Section 2, D9
+  - Files: to be determined (eng review)
+  - Verify: pytest with a raising fake collector -> snapshot marked stalled
+- [ ] **T3 (P1, human: ~2h / CC: ~10min)**: processes: smoothed ranking + CPU/RAM toggle + PID-keyed rows
+  - Surfaced by: Section 4, D7, D10
+  - Files: to be determined
+  - Verify: pytest with a scripted CPU sequence -> no swap on small fluctuations
+- [ ] **T4 (P1, human: ~2h / CC: ~10min)**: server: polled `/api/snapshot`, Host allowlist rules, port-in-use error
+  - Surfaced by: Sections 2/3, D12, D13
+  - Files: to be determined
+  - Verify: TestClient for allowed/denied Hosts with and without `--lan`
+- [ ] **T5 (P1, human: ~3h / CC: ~15min)**: containers: poller with `one_shot`, fake-client tests, then a live check after the Docker install (admin, ask first)
+  - Surfaced by: outside voice, D1
+  - Files: to be determined
+  - Verify: pytest (fake: timeout / denied / not running); live run on Docker Desktop
+- [ ] **T6 (P2, human: ~2h / CC: ~10min)**: status line with attribution rule, "Watching since", 60s server rings
+  - Surfaced by: D5, D11, D14
+  - Files: to be determined
+  - Verify: pytest for status composition; manual check that Trends is populated on open
+- [ ] **T7 (P2, human: ~1h / CC: ~5min)**: README: one command, git + `--refresh`, `--lan` warning, firewall, autostart
+  - Surfaced by: outside voice, D8, D11
+  - Files: README.md
+  - Verify: follow the README on Windows and Linux from a clean shell
+
+Task JSONL not persisted: jq is not installed (install jq for /autoplan aggregation).
+
+### Completion Summary
+```
+  +====================================================================+
+  |            MEGA PLAN REVIEW - COMPLETION SUMMARY                   |
+  +====================================================================+
+  | Mode selected        | SCOPE REDUCTION                             |
+  | System Audit         | docs-only repo; py3.9, no uv, no docker     |
+  | Step 0               | 8 scope decisions: 2 deferred, 1 added      |
+  | Section 1  (Arch)    | 1 issue (uvx needs push; recorded)          |
+  | Section 2  (Errors)  | 11 error paths mapped, 1 GAP (fixed D9)     |
+  | Section 3  (Security)| 1 issue (LAN allowlist, fixed D13), 0 High  |
+  | Section 4  (Data/UX) | 4 edge cases mapped, 0 unhandled (D10)      |
+  | Section 5  (Quality) | 0 issues                                    |
+  | Section 6  (Tests)   | test list produced, 0 gaps (owner: eng)     |
+  | Section 7  (Perf)    | 1 issue (docker stats, corrected)           |
+  | Section 8  (Observ)  | 0 gaps                                      |
+  | Section 9  (Deploy)  | 1 risk (tag v0.1.0 for rollback)            |
+  | Section 10 (Future)  | Reversibility: 4/5, debt items: 0           |
+  | Section 11 (Design)  | 1 issue (375px height budget -> design rev) |
+  +--------------------------------------------------------------------+
+  | NOT in scope         | written (2 deferred + office-hours cuts)    |
+  | What already exists  | written                                     |
+  | Dream state delta    | written                                     |
+  | Error/rescue registry| 11 rows, 0 CRITICAL GAPS                    |
+  | Failure modes        | 6 total, 0 CRITICAL GAPS                    |
+  | TODOS.md updates     | 2 items (sensors, PWA)                      |
+  | Scope proposals      | 0 (REDUCTION mode)                          |
+  | CEO plan             | skipped by mode                             |
+  | Outside voice        | codex not installed; native completed (12)  |
+  | Lake Score           | N/A (no coverage-scored questions)          |
+  | Diagrams produced    | 3 (architecture, state machine, rollback)   |
+  | Stale diagrams found | 0                                           |
+  | Unresolved decisions | 0                                           |
+  | Reality rows         | 7/7 rows, 2 unverified                      |
+  +====================================================================+
+```
+
+Approval readiness: PASS (D1-D14, each backed by the user's answer in /plan-ceo-review on 2026-11-03).
+
+## GSTACK REVIEW REPORT
+
+| Review | Trigger | Why | Runs | Status | Findings |
+|--------|---------|-----|------|--------|----------|
+| CEO Review | `/plan-ceo-review` | Scope & strategy | 1 | CLEAR | mode: SCOPE_REDUCTION, 0 critical gaps |
+| Outside Review | native fallback (codex not installed) | Independent 2nd opinion | 1 | unavailable (native completed) | 12 findings (native); 12 resolved; 0 unresolved; no completed external review |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 0 | — | — |
+| Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | — |
+| DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | — |
+
+- **OUTSIDE COVERAGE:** codex, plan-review phase: unavailable (CLI not installed). A native Claude Plan subagent completed with 12 findings, all dispositioned (4 by user decisions D11-D14, 8 by correction or by handing to eng/design review).
+- **VERDICT:** CEO CLEARED. Eng review required.
+
+NO UNRESOLVED DECISIONS

@@ -107,7 +107,7 @@ button {
 
 /* ---- app bar ---------------------------------------------------------------------- */
 .bar { display: flex; align-items: baseline; gap: 20px; min-height: 28px; }
-.brand { font-weight: 600; font-size: 15px; }
+.brand { margin: 0; font-weight: 600; font-size: 15px; line-height: inherit; }
 .tabs { display: flex; gap: 16px; font-size: 14px; }
 .tab { color: var(--text-muted); padding-bottom: 3px; border-bottom: 2px solid transparent; }
 .tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); }

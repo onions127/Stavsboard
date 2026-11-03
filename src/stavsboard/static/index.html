@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Stavsboard</title>
+<script src="static/theme.js"></script>
+<link rel="preload" href="static/fonts/schibsted-grotesk-var.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="static/fonts/instrument-serif-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="static/app.css">
+<script src="static/app.js" defer></script>
+</head>
+<body>
+<div class="app is-loading" id="app">
+  <header class="bar">
+    <span class="brand">Stavsboard</span>
+    <div class="tabs" role="tablist" aria-label="View">
+      <button class="tab hit" role="tab" id="tab-now" aria-selected="true" aria-controls="panel-now">Now<span class="tabdot" id="tabdot" aria-hidden="true"></span></button>
+      <button class="tab hit" role="tab" id="tab-trends" aria-selected="false" aria-controls="panel-trends" tabindex="-1">Trends</button>
+    </div>
+    <button class="textbtn hit" id="settings-btn" aria-expanded="false" aria-controls="settings">Settings</button>
+  </header>
+
+  <section class="settings" id="settings" aria-label="Settings" hidden>
+    <div class="srow">
+      <span class="slabel" id="theme-lbl">Theme</span>
+      <span class="seg" role="group" aria-labelledby="theme-lbl">
+        <button class="hit" data-theme-opt="auto" aria-pressed="true">Auto</button><span class="sep" aria-hidden="true">·</span><button class="hit" data-theme-opt="light" aria-pressed="false">Light</button><span class="sep" aria-hidden="true">·</span><button class="hit" data-theme-opt="dark" aria-pressed="false">Dark</button>
+      </span>
+      <span class="shint">This device only</span>
+    </div>
+    <div class="srow">
+      <span class="slabel" id="mode-lbl">Refresh</span>
+      <span class="seg" role="group" aria-labelledby="mode-lbl">
+        <button class="hit" data-mode-opt="accurate" aria-pressed="true">Accurate</button><span class="sep" aria-hidden="true">·</span><button class="hit" data-mode-opt="low" aria-pressed="false">Low impact</button>
+      </span>
+      <span class="shint" id="mode-hint">Every second. Applies to everyone viewing.</span>
+    </div>
+  </section>
+
+  <main>
+    <div class="panel" id="panel-now" role="tabpanel" aria-labelledby="tab-now">
+      <div class="status" id="status">
+        <span class="dot" id="status-dot" aria-hidden="true"></span>
+        <p class="sentence"><span id="status-text">Connecting…</span><span class="more" id="status-more"></span></p>
+      </div>
+      <div class="sr-only" id="status-live" aria-live="polite"></div>
+
+      <div class="warnings" id="warnings">
+        <span id="warn-items"></span>
+        <button class="textbtn hit" id="log-btn" aria-expanded="false" aria-controls="log" hidden>Log · 0</button>
+      </div>
+      <div class="log" id="log" hidden>
+        <p class="log-head" id="log-head"></p>
+        <ul id="log-list"></ul>
+      </div>
+
+      <div class="gauges">
+        <section class="gauge" id="sec-cpu" aria-labelledby="cpu-lbl">
+          <div class="cpu-row">
+            <svg class="dial" viewBox="0 0 240 128" aria-hidden="true">
+              <path class="track" d="M16 120 A104 104 0 0 1 224 120"/>
+              <path class="val" id="cpu-arc" pathLength="100" stroke-dasharray="0 100" d="M16 120 A104 104 0 0 1 224 120"/>
+            </svg>
+            <div class="readout">
+              <h2 class="lbl" id="cpu-lbl">CPU</h2>
+              <div class="num" id="cpu-num">—</div>
+              <div class="sub" id="cpu-sub">&nbsp;</div>
+            </div>
+          </div>
+          <div class="cores" id="cores" aria-hidden="true"></div>
+        </section>
+
+        <section class="gauge" id="sec-mem" aria-labelledby="mem-lbl">
+          <h2 class="lbl" id="mem-lbl">Memory</h2>
+          <div class="num" id="mem-num">—</div>
+          <div class="sub" id="mem-sub">&nbsp;</div>
+          <div class="capbar" aria-hidden="true"><span class="u" id="seg-used"></span><span class="c" id="seg-cached"></span><span class="f" id="seg-free"></span></div>
+          <div class="legend" id="mem-legend"></div>
+          <div class="swapline" id="swap-line" aria-hidden="true"><span id="swap-fill"></span></div>
+          <div class="cap" id="swap-cap">&nbsp;</div>
+        </section>
+      </div>
+
+      <div class="rule"></div>
+
+      <div class="lists solo" id="lists">
+        <section class="list" aria-labelledby="procs-h">
+          <h3 class="list-h"><span id="procs-h">Top processes</span>
+            <span class="seg" role="group" aria-label="Sort by">
+              <button class="hit" data-sort="cpu" aria-pressed="true">CPU</button><span class="sep" aria-hidden="true">·</span><button class="hit" data-sort="ram" aria-pressed="false">RAM</button>
+            </span>
+          </h3>
+          <table class="rows"><tbody id="procs-body"></tbody></table>
+        </section>
+        <section class="list" id="sec-ctrs" aria-labelledby="ctrs-h" hidden>
+          <h3 class="list-h"><span id="ctrs-h" title="CPU is a share of Docker's CPUs">Containers</span><span id="ctrs-sum"></span></h3>
+          <p class="empty" id="ctrs-empty" hidden></p>
+          <table class="rows"><tbody id="ctrs-body"></tbody></table>
+        </section>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-trends" role="tabpanel" aria-labelledby="tab-trends" hidden>
+      <p class="caption" id="trends-caption">Last 60 seconds</p>
+      <div class="trends" id="trend-rows"></div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

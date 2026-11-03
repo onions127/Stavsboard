@@ -78,6 +78,15 @@ def test_index_and_static_served_with_security_headers(setup):
     assert client.get("/static/fonts/schibsted-grotesk-var.woff2").status_code == 200
 
 
+# Regression: FINDING-005 — static files had no Cache-Control, so browsers reused an old
+# app.js/app.css after an upgrade. Found by /design-review on 2026-11-03.
+def test_static_files_revalidate(setup):
+    client, _ = setup
+    for path in ("/static/app.js", "/static/app.css", "/static/theme.js"):
+        r = client.get(path)
+        assert r.headers["cache-control"] == "no-cache" and r.headers.get("etag"), path
+
+
 def test_settings_post_rules(setup):
     client, store = setup
     ok = client.post("/api/settings", json={"mode": "low"})

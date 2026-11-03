@@ -15,12 +15,11 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse
-from fastapi.staticfiles import StaticFiles
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from fakes import Clock  # noqa: E402
 
-from stavsboard.app import STATIC_DIR, host_allowed  # noqa: E402
+from stavsboard.app import STATIC_DIR, RevalidatingStaticFiles, host_allowed  # noqa: E402
 from stavsboard.store import MODES, Store  # noqa: E402
 
 GB = 1024**3
@@ -181,7 +180,7 @@ def make_app() -> FastAPI:
         store_for(request.cookies.get("scenario", "calm")).set_mode(body.get("mode", "accurate"))
         return {"mode": body.get("mode")}
 
-    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+    app.mount("/static", RevalidatingStaticFiles(directory=STATIC_DIR), name="static")
     return app
 
 

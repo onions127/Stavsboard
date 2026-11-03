@@ -22,6 +22,16 @@ SECURITY_HEADERS = {
 }
 
 
+class RevalidatingStaticFiles(StaticFiles):
+    """Static files that browsers re-check (ETag) on every load, so an upgraded install
+    never pairs a new index.html with a cached old app.js or app.css."""
+
+    def file_response(self, *args, **kwargs):
+        response = super().file_response(*args, **kwargs)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
 def _split_host(host: str) -> str | None:
     """Host header -> bare lowercase name or IP (port and IPv6 brackets removed)."""
     host = host.strip().lower()
@@ -113,5 +123,5 @@ def create_app(store: Store, *, lan: bool = False, hostname: str = "", static_di
     def index():
         return FileResponse(static_dir / "index.html", headers={"Cache-Control": "no-cache"})
 
-    app.mount("/static", StaticFiles(directory=static_dir), name="static")
+    app.mount("/static", RevalidatingStaticFiles(directory=static_dir), name="static")
     return app

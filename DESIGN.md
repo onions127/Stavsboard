@@ -186,3 +186,4 @@ status wash (`warning-wash` / `error-wash`) behind a section that's in trouble.
 | 2026-11-03 | Removed card boxes; new CPU arc + per-core bars and memory ring | User: "too blocky and cardy", "doesn't look like a pegboard" |
 | 2026-11-03 | Layout: warnings top, CPU left, Memory right, lists below | User-specified layout |
 | 2026-11-03 | Instrument Serif only for the status sentence | Measured: no tabular figures, so live numbers would jitter |
+| 2026-11-03 | Now screen = variant B "Horizon bands" (/design-shotgun) | Wide CPU half-dial (72px number, per-core bars along base); memory used/cached/free bar + legend + swap bar. Cached segment Linux-only (psutil has none on Windows). Reference: docs/design/now-variants.html, section B |

@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stavsboard Now variants</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Schibsted+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root { --ground:#E3E7E1; --ink:#1E2422; --muted:#5F6963; --track:#CDD3CC; --rule:#D3D9D2; --good:#1F8A4C; --good-text:#17703D; --good-soft:#9CCBAE; --warn:#C98A00; --warn-text:#8A5A00; --wash:#F1E2B8; --crit:#C2361F; --crit-text:#B4301B; --serif:'Instrument Serif',Georgia,serif; --sans:'Schibsted Grotesk','Segoe UI',sans-serif; }
+  .dark { --ground:#181C1E; --ink:#E3E6E1; --muted:#8D9691; --track:#2E3539; --rule:#272D31; --good:#4CC38A; --good-text:#4CC38A; --good-soft:#2C5E45; --warn:#E8B23A; --warn-text:#E8B23A; --wash:#3A2E12; --crit:#FF6A4D; --crit-text:#FF7A5E; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:#F4F5F3; font-family:var(--sans); color:#1E2422; }
+  .page { max-width:1340px; margin:0 auto; padding:24px 16px 64px; }
+  h1 { font-family:var(--serif); font-weight:400; font-size:40px; margin:0 0 6px; }
+  .page > p { color:#5F6963; margin:0 0 8px; max-width:70ch; line-height:1.5; }
+  h2 { font-size:22px; font-weight:600; margin:44px 0 4px; }
+  h2 + p.note { color:#5F6963; font-size:14px; margin:0 0 14px; max-width:70ch; line-height:1.5; }
+  .pair { display:grid; gap:20px; }
+  .app { background:var(--ground); color:var(--ink); border-radius:12px; padding:22px 28px 26px; }
+  .bar { display:flex; align-items:baseline; gap:20px; }
+  .brand { font-weight:600; font-size:15px; }
+  .tabs { display:flex; gap:16px; font-size:14px; } .tabs span { color:var(--muted); padding-bottom:3px; } .tabs span.on { color:var(--ink); border-bottom:2px solid var(--ink); }
+  .theme { margin-left:auto; font-size:13px; color:var(--muted); }
+  .status { font-family:var(--serif); font-size:34px; line-height:1.15; display:flex; gap:12px; align-items:baseline; margin:20px 0 8px; }
+  .dot { width:12px; height:12px; border-radius:50%; flex:none; transform:translateY(-4px); background:var(--good); } .warn .dot { background:var(--warn); }
+  .warnings { display:flex; flex-wrap:wrap; gap:6px 22px; font-size:14px; color:var(--muted); }
+  .warnings .ok { color:var(--good-text); font-weight:600; } .warnings .live { color:var(--warn-text); font-weight:600; }
+  .num { font-weight:500; line-height:1; font-variant-numeric:tabular-nums; letter-spacing:-0.02em; }
+  .lbl { font-size:13px; font-weight:500; color:var(--muted); margin:0 0 4px; }
+  .sub { font-size:14px; color:var(--muted); margin-top:6px; }
+  .alarm .num.m { color:var(--warn-text); }
+  .washed { background:var(--wash); border-radius:10px; }
+  .t { stroke:var(--track); } .g { stroke:var(--good); } .w { stroke:var(--warn); }
+  .cores { display:flex; align-items:flex-end; gap:3px; } .cores i { flex:1; border-radius:3px 3px 1px 1px; background:var(--good-soft); } .cores i.hot { background:var(--warn); }
+  .line { height:6px; border-radius:3px; background:var(--track); overflow:hidden; display:flex; } .line span { height:100%; background:var(--good); } .warn .line.mem span { background:var(--warn); }
+  .cap { font-size:12px; color:var(--muted); margin-top:5px; }
+  .rule { height:1px; background:var(--rule); }
+  .lists { display:grid; grid-template-columns:1fr 1fr; gap:40px; padding-top:20px; }
+  .lists h4 { margin:0 0 8px; font-size:13px; font-weight:500; color:var(--muted); display:flex; justify-content:space-between; }
+  .lists h4 .bad { color:var(--crit-text); font-weight:600; }
+  table { width:100%; border-collapse:collapse; font-size:14px; } td { padding:7px 0; } tr+tr td { border-top:1px solid var(--rule); }
+  td.n { text-align:right; width:72px; font-variant-numeric:tabular-nums; } td.m { color:var(--muted); }
+  .ctr { display:flex; align-items:center; gap:8px; } .ctr i { width:8px; height:8px; border-radius:50%; background:var(--good); } .ctr i.off { background:var(--crit); } .exit { color:var(--crit-text); font-weight:600; }
+  .seg span.on { color:var(--ink); border-bottom:2px solid var(--ink); }
+
+  /* A */
+  .A .gauges { display:grid; grid-template-columns:1fr 1fr; gap:40px; padding:22px 0 26px; }
+  .A .gauge { display:flex; gap:22px; align-items:center; padding:14px 16px; }
+  .A .num { font-size:52px; } .A .cores { height:34px; width:168px; margin-top:14px; } .A .line { width:168px; margin-top:12px; }
+  /* B */
+  .B .gauges { display:grid; grid-template-columns:1fr 1fr; gap:40px; padding:22px 0 26px; }
+  .B .cpuband { padding:14px 16px; } .B .row { display:flex; align-items:flex-end; gap:24px; }
+  .B .num { font-size:72px; } .B .cores { height:30px; width:240px; margin-top:12px; }
+  .B .memband { padding:14px 16px; } .B .cap-bar { height:18px; border-radius:9px; background:var(--track); display:flex; overflow:hidden; margin-top:14px; }
+  .B .cap-bar .u { background:var(--good); } .warn .B .cap-bar .u, .B.warn .cap-bar .u { background:var(--warn); } .B .cap-bar .c { background:var(--good-soft); }
+  .B .legend { display:flex; gap:16px; font-size:12px; color:var(--muted); margin-top:6px; } .B .legend b { display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:6px; vertical-align:0; }
+  .B .line { margin-top:12px; }
+  /* C */
+  .C .gauges { display:grid; grid-template-columns:1fr 1fr; gap:40px; padding:24px 0 28px; }
+  .C .dial { display:flex; flex-direction:column; align-items:center; padding:16px 20px; }
+  .C .face { position:relative; width:220px; height:220px; } .C .face svg { position:absolute; inset:0; }
+  .C .face .in { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .C .num { font-size:60px; } .C .cores { height:26px; width:200px; margin-top:12px; } .C .line { width:200px; margin-top:12px; }
+  .C .lists { font-size:13px; } .C table { font-size:13px; } .C td:first-child { color:var(--muted); }
+</style>
+</head>
+<body>
+<div class="page">
+<h1>Now screen: 3 directions</h1>
+<p>Each variant shows <b>all calm (light)</b> and then <b>something wrong (dark)</b>. They share the same colors, fonts and your layout: warnings on top, CPU left, memory right, lists below. Only the CPU and memory graphics and the composition differ.</p>
+
+<!-- ============ A ============ -->
+<h2>A · Open instrument</h2>
+<p class="note">The approved v2, refined: a mid-size arc and ring beside their numbers, with balanced columns. Calm and compact; it fits a half-width tab best.</p>
+<div class="pair">
+<div class="app A">
+  <div class="bar"><span class="brand">Stavsboard</span><div class="tabs"><span class="on">Now</span><span>Trends</span></div><span class="theme">Light · Dark</span></div>
+  <div class="status"><span class="dot"></span>All calm.</div>
+  <div class="warnings"><span class="ok">No active warnings</span><span>Last: CPU hit 97% at 03:14 for 4 min</span><span>Watching since 09:12</span></div>
+  <div class="gauges">
+    <div class="gauge"><svg width="132" height="132" viewBox="0 0 132 132"><g transform="rotate(135 66 66)" fill="none" stroke-width="10" stroke-linecap="round"><circle class="t" cx="66" cy="66" r="52" stroke-dasharray="245 327"/><circle class="g" cx="66" cy="66" r="52" stroke-dasharray="29 327"/></g></svg>
+      <div><div class="lbl">CPU</div><div class="num">12%</div><div class="sub">16 cores</div><div class="cores"><i style="height:30%"></i><i style="height:18%"></i><i style="height:42%"></i><i style="height:22%"></i><i style="height:15%"></i><i style="height:26%"></i><i style="height:12%"></i><i style="height:35%"></i><i style="height:20%"></i><i style="height:14%"></i><i style="height:28%"></i><i style="height:16%"></i><i style="height:24%"></i><i style="height:12%"></i><i style="height:19%"></i><i style="height:22%"></i></div></div></div>
+    <div class="gauge"><svg width="132" height="132" viewBox="0 0 132 132"><g transform="rotate(-90 66 66)" fill="none" stroke-width="14"><circle class="t" cx="66" cy="66" r="50"/><circle class="g" cx="66" cy="66" r="50" stroke-dasharray="151 315" stroke-linecap="round"/></g></svg>
+      <div><div class="lbl">Memory</div><div class="num m">48%</div><div class="sub">7.7 of 16 GB</div><div class="line mem"><span style="width:5%"></span></div><div class="cap">Swap 0.2 of 4 GB</div></div></div>
+  </div>
+  <div class="rule"></div>
+  <div class="lists">
+    <div><h4><span>Top processes</span><span class="seg"><span class="on">CPU</span> · RAM</span></h4><table><tr><td>chrome.exe</td><td class="n">4.1%</td><td class="n m">2.3 GB</td></tr><tr><td>Code.exe</td><td class="n">2.6%</td><td class="n m">1.1 GB</td></tr><tr><td>Docker Desktop</td><td class="n">1.9%</td><td class="n m">0.9 GB</td></tr><tr><td>Discord</td><td class="n">0.8%</td><td class="n m">0.4 GB</td></tr></table></div>
+    <div><h4><span>Containers</span><span>2 running</span></h4><table><tr><td><span class="ctr"><i></i>postgres</span></td><td class="n">0.6%</td><td class="n m">212 MB</td></tr><tr><td><span class="ctr"><i></i>redis</span></td><td class="n">0.1%</td><td class="n m">18 MB</td></tr></table></div>
+  </div>
+</div>
+<div class="app A dark warn">
+  <div class="bar"><span class="brand">Stavsboard</span><div class="tabs"><span class="on">Now</span><span>Trends</span></div><span class="theme">Light · Dark</span></div>
+  <div class="status"><span class="dot"></span>Memory is high: chrome.exe is using 6.1 GB.</div>
+  <div class="warnings"><span class="live">RAM above 90% since 14:02 (ongoing)</span><span>CPU hit 97% at 03:14 for 4 min</span><span>Watching since 09:12</span></div>
+  <div class="gauges">
+    <div class="gauge"><svg width="132" height="132" viewBox="0 0 132 132"><g transform="rotate(135 66 66)" fill="none" stroke-width="10" stroke-linecap="round"><circle class="t" cx="66" cy="66" r="52" stroke-dasharray="245 327"/><circle class="g" cx="66" cy="66" r="52" stroke-dasharray="56 327"/></g></svg>
+      <div><div class="lbl">CPU</div><div class="num">23%</div><div class="sub">16 cores · one busy</div><div class="cores"><i style="height:30%"></i><i style="height:22%"></i><i style="height:40%"></i><i class="hot" style="height:96%"></i><i style="height:18%"></i><i style="height:26%"></i><i style="height:14%"></i><i style="height:35%"></i><i style="height:20%"></i><i style="height:16%"></i><i style="height:28%"></i><i style="height:18%"></i><i style="height:24%"></i><i style="height:12%"></i><i style="height:19%"></i><i style="height:22%"></i></div></div></div>
+    <div class="gauge washed alarm"><svg width="132" height="132" viewBox="0 0 132 132"><g transform="rotate(-90 66 66)" fill="none" stroke-width="14"><circle class="t" cx="66" cy="66" r="50"/><circle class="w" cx="66" cy="66" r="50" stroke-dasharray="286 315" stroke-linecap="round"/></g></svg>
+      <div><div class="lbl">Memory</div><div class="num m">91%</div><div class="sub">14.6 of 16 GB</div><div class="line mem"><span style="width:52%"></span></div><div class="cap">Swap 2.1 of 4 GB</div></div></div>
+  </div>
+  <div class="rule"></div>
+  <div class="lists">
+    <div><h4><span>Top processes</span><span class="seg">CPU · <span class="on">RAM</span></span></h4><table><tr><td>chrome.exe</td><td class="n">6.1 GB</td><td class="n m">9.4%</td></tr><tr><td>Code.exe</td><td class="n">1.8 GB</td><td class="n m">2.2%</td></tr><tr><td>Docker Desktop</td><td class="n">1.2 GB</td><td class="n m">1.9%</td></tr></table></div>
+    <div><h4><span>Containers</span><span class="bad">1 exited</span></h4><table><tr><td><span class="ctr"><i></i>postgres</span></td><td class="n">0.6%</td><td class="n m">212 MB</td></tr><tr><td><span class="ctr"><i class="off"></i>api</span></td><td class="n exit">exit 1</td><td class="n m">—</td></tr></table></div>
+  </div>
+</div>
+</div>
+
+<!-- ============ B ============ -->
+<h2>B · Horizon bands</h2>
+<p class="note">Wide, flat meters with very large numbers. CPU is a half-dial with the per-core bars along its base. Memory is one long bar split into used, cached and free, which shows what's using the RAM.</p>
+<div class="pair">
+<div class="app B">
+  <div class="bar"><span class="brand">Stavsboard</span><div class="tabs"><span class="on">Now</span><span>Trends</span></div><span class="theme">Light · Dark</span></div>
+  <div class="status"><span class="dot"></span>All calm.</div>
+  <div class="warnings"><span class="ok">No active warnings</span><span>Last: CPU hit 97% at 03:14 for 4 min</span><span>Watching since 09:12</span></div>
+  <div class="gauges">
+    <div class="cpuband"><div class="row"><svg width="240" height="128" viewBox="0 0 240 128"><g fill="none" stroke-width="16" stroke-linecap="round"><path class="t" d="M16 120 A104 104 0 0 1 224 120"/><path class="g" d="M16 120 A104 104 0 0 1 24 80"/></g></svg>
+      <div><div class="lbl">CPU</div><div class="num">12%</div><div class="sub">16 cores</div></div></div>
+      <div class="cores"><i style="height:30%"></i><i style="height:18%"></i><i style="height:42%"></i><i style="height:22%"></i><i style="height:15%"></i><i style="height:26%"></i><i style="height:12%"></i><i style="height:35%"></i><i style="height:20%"></i><i style="height:14%"></i><i style="height:28%"></i><i style="height:16%"></i><i style="height:24%"></i><i style="height:12%"></i><i style="height:19%"></i><i style="height:22%"></i></div></div>
+    <div class="memband"><div class="lbl">Memory</div><div class="num m">48%</div><div class="sub">7.7 of 16 GB</div>
+      <div class="cap-bar"><span class="u" style="width:28%"></span><span class="c" style="width:20%"></span></div>
+      <div class="legend"><span><b style="background:var(--good)"></b>Used 4.5 GB</span><span><b style="background:var(--good-soft)"></b>Cached 3.2 GB</span><span><b style="background:var(--track)"></b>Free 8.3 GB</span></div>
+      <div class="line mem"><span style="width:5%"></span></div><div class="cap">Swap 0.2 of 4 GB</div></div>
+  </div>
+  <div class="rule"></div>
+  <div class="lists">
+    <div><h4><span>Top processes</span><span class="seg"><span class="on">CPU</span> · RAM</span></h4><table><tr><td>chrome.exe</td><td class="n">4.1%</td><td class="n m">2.3 GB</td></tr><tr><td>Code.exe</td><td class="n">2.6%</td><td class="n m">1.1 GB</td></tr><tr><td>Docker Desktop</td><td class="n">1.9%</td><td class="n m">0.9 GB</td></tr><tr><td>Discord</td><td class="n">0.8%</td><td class="n m">0.4 GB</td></tr></table></div>
+    <div><h4><span>Containers</span><span>2 running</span></h4><table><tr><td><span class="ctr"><i></i>postgres</span></td><td class="n">0.6%</td><td class="n m">212 MB</td></tr><tr><td><span class="ctr"><i></i>redis</span></td><td class="n">0.1%</td><td class="n m">18 MB</td></tr></table></div>
+  </div>
+</div>
+<div class="app B dark warn">
+  <div class="bar"><span class="brand">Stavsboard</span><div class="tabs"><span class="on">Now</span><span>Trends</span></div><span class="theme">Light · Dark</span></div>
+  <div class="status"><span class="dot"></span>Memory is high: chrome.exe is using 6.1 GB.</div>
+  <div class="warnings"><span class="live">RAM above 90% since 14:02 (ongoing)</span><span>CPU hit 97% at 03:14 for 4 min</span><span>Watching since 09:12</span></div>
+  <div class="gauges">
+    <div class="cpuband"><div class="row"><svg width="240" height="128" viewBox="0 0 240 128"><g fill="none" stroke-width="16" stroke-linecap="round"><path class="t" d="M16 120 A104 104 0 0 1 224 120"/><path class="g" d="M16 120 A104 104 0 0 1 49 44"/></g></svg>
+      <div><div class="lbl">CPU</div><div class="num">23%</div><div class="sub">one core busy</div></div></div>
+      <div class="cores"><i style="height:30%"></i><i style="height:22%"></i><i style="height:40%"></i><i class="hot" style="height:96%"></i><i style="height:18%"></i><i style="height:26%"></i><i style="height:14%"></i><i style="height:35%"></i><i style="height:20%"></i><i style="height:16%"></i><i style="height:28%"></i><i style="height:18%"></i><i style="height:24%"></i><i style="height:12%"></i><i style="height:19%"></i><i style="height:22%"></i></div></div>
+    <div class="memband washed alarm"><div class="lbl">Memory</div><div class="num m">91%</div><div class="sub">14.6 of 16 GB</div>
+      <div class="cap-bar"><span class="u" style="width:85%;background:var(--warn)"></span><span class="c" style="width:6%"></span></div>
+      <div class="legend"><span><b style="background:var(--warn)"></b>Used 13.6 GB</span><span><b style="background:var(--good-soft)"></b>Cached 1.0 GB</span><span><b style="background:var(--track)"></b>Free 1.4 GB</span></div>
+      <div class="line mem"><span style="width:52%"></span></div><div class="cap">Swap 2.1 of 4 GB</div></div>
+  </div>
+  <div class="rule"></div>
+  <div class="lists">
+    <div><h4><span>Top processes</span><span class="seg">CPU · <span class="on">RAM</span></span></h4><table><tr><td>chrome.exe</td><td class="n">6.1 GB</td><td class="n m">9.4%</td></tr><tr><td>Code.exe</td><td class="n">1.8 GB</td><td class="n m">2.2%</td></tr><tr><td>Docker Desktop</td><td class="n">1.2 GB</td><td class="n m">1.9%</td></tr></table></div>
+    <div><h4><span>Containers</span><span class="bad">1 exited</span></h4><table><tr><td><span class="ctr"><i></i>postgres</span></td><td class="n">0.6%</td><td class="n m">212 MB</td></tr><tr><td><span class="ctr"><i class="off"></i>api</span></td><td class="n exit">exit 1</td><td class="n m">—</td></tr></table></div>
+  </div>
+</div>
+</div>
+
+<!-- ============ C ============ -->
+<h2>C · Twin dials</h2>
+<p class="note">Two big matched dials with the number inside, so the screen reads like a clock face from across the room. The lists below are smaller and quieter, so the dials own the screen.</p>
+<div class="pair">
+<div class="app C">
+  <div class="bar"><span class="brand">Stavsboard</span><div class="tabs"><span class="on">Now</span><span>Trends</span></div><span class="theme">Light · Dark</span></div>
+  <div class="status"><span class="dot"></span>All calm.</div>
+  <div class="warnings"><span class="ok">No active warnings</span><span>Last: CPU hit 97% at 03:14 for 4 min</span><span>Watching since 09:12</span></div>
+  <div class="gauges">
+    <div class="dial"><div class="face"><svg width="220" height="220" viewBox="0 0 132 132"><g transform="rotate(135 66 66)" fill="none" stroke-width="8" stroke-linecap="round"><circle class="t" cx="66" cy="66" r="56" stroke-dasharray="264 352"/><circle class="g" cx="66" cy="66" r="56" stroke-dasharray="32 352"/></g></svg><div class="in"><div class="num">12%</div><div class="lbl">CPU</div></div></div>
+      <div class="sub">16 cores</div><div class="cores"><i style="height:30%"></i><i style="height:18%"></i><i style="height:42%"></i><i style="height:22%"></i><i style="height:15%"></i><i style="height:26%"></i><i style="height:12%"></i><i style="height:35%"></i><i style="height:20%"></i><i style="height:14%"></i><i style="height:28%"></i><i style="height:16%"></i><i style="height:24%"></i><i style="height:12%"></i><i style="height:19%"></i><i style="height:22%"></i></div></div>
+    <div class="dial"><div class="face"><svg width="220" height="220" viewBox="0 0 132 132"><g transform="rotate(-90 66 66)" fill="none" stroke-width="9"><circle class="t" cx="66" cy="66" r="56"/><circle class="g" cx="66" cy="66" r="56" stroke-dasharray="169 352" stroke-linecap="round"/></g></svg><div class="in"><div class="num m">48%</div><div class="lbl">Memory</div></div></div>
+      <div class="sub">7.7 of 16 GB</div><div class="line mem"><span style="width:5%"></span></div><div class="cap">Swap 0.2 of 4 GB</div></div>
+  </div>
+  <div class="rule"></div>
+  <div class="lists">
+    <div><h4><span>Top processes</span><span class="seg"><span class="on">CPU</span> · RAM</span></h4><table><tr><td>chrome.exe</td><td class="n">4.1%</td><td class="n m">2.3 GB</td></tr><tr><td>Code.exe</td><td class="n">2.6%</td><td class="n m">1.1 GB</td></tr><tr><td>Docker Desktop</td><td class="n">1.9%</td><td class="n m">0.9 GB</td></tr></table></div>
+    <div><h4><span>Containers</span><span>2 running</span></h4><table><tr><td><span class="ctr"><i></i>postgres</span></td><td class="n">0.6%</td><td class="n m">212 MB</td></tr><tr><td><span class="ctr"><i></i>redis</span></td><td class="n">0.1%</td><td class="n m">18 MB</td></tr></table></div>
+  </div>
+</div>
+<div class="app C dark warn">
+  <div class="bar"><span class="brand">Stavsboard</span><div class="tabs"><span class="on">Now</span><span>Trends</span></div><span class="theme">Light · Dark</span></div>
+  <div class="status"><span class="dot"></span>Memory is high: chrome.exe is using 6.1 GB.</div>
+  <div class="warnings"><span class="live">RAM above 90% since 14:02 (ongoing)</span><span>CPU hit 97% at 03:14 for 4 min</span><span>Watching since 09:12</span></div>
+  <div class="gauges">
+    <div class="dial"><div class="face"><svg width="220" height="220" viewBox="0 0 132 132"><g transform="rotate(135 66 66)" fill="none" stroke-width="8" stroke-linecap="round"><circle class="t" cx="66" cy="66" r="56" stroke-dasharray="264 352"/><circle class="g" cx="66" cy="66" r="56" stroke-dasharray="61 352"/></g></svg><div class="in"><div class="num">23%</div><div class="lbl">CPU</div></div></div>
+      <div class="sub">one core busy</div><div class="cores"><i style="height:30%"></i><i style="height:22%"></i><i style="height:40%"></i><i class="hot" style="height:96%"></i><i style="height:18%"></i><i style="height:26%"></i><i style="height:14%"></i><i style="height:35%"></i><i style="height:20%"></i><i style="height:16%"></i><i style="height:28%"></i><i style="height:18%"></i><i style="height:24%"></i><i style="height:12%"></i><i style="height:19%"></i><i style="height:22%"></i></div></div>
+    <div class="dial washed alarm"><div class="face"><svg width="220" height="220" viewBox="0 0 132 132"><g transform="rotate(-90 66 66)" fill="none" stroke-width="9"><circle class="t" cx="66" cy="66" r="56"/><circle class="w" cx="66" cy="66" r="56" stroke-dasharray="320 352" stroke-linecap="round"/></g></svg><div class="in"><div class="num m">91%</div><div class="lbl">Memory</div></div></div>
+      <div class="sub">14.6 of 16 GB</div><div class="line mem"><span style="width:52%"></span></div><div class="cap">Swap 2.1 of 4 GB</div></div>
+  </div>
+  <div class="rule"></div>
+  <div class="lists">
+    <div><h4><span>Top processes</span><span class="seg">CPU · <span class="on">RAM</span></span></h4><table><tr><td>chrome.exe</td><td class="n">6.1 GB</td><td class="n m">9.4%</td></tr><tr><td>Code.exe</td><td class="n">1.8 GB</td><td class="n m">2.2%</td></tr></table></div>
+    <div><h4><span>Containers</span><span class="bad">1 exited</span></h4><table><tr><td><span class="ctr"><i></i>postgres</span></td><td class="n">0.6%</td><td class="n m">212 MB</td></tr><tr><td><span class="ctr"><i class="off"></i>api</span></td><td class="n exit">exit 1</td><td class="n m">—</td></tr></table></div>
+  </div>
+</div>
+</div>
+</div>
+</body>
+</html>

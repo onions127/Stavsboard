@@ -187,7 +187,8 @@ button {
 .gauges { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; padding: 22px 0 26px; }
 .gauge {
   container-type: inline-size; min-width: 0;
-  padding: 14px 16px; border-radius: 10px;
+  /* The wash bleeds into the gutter so gauge content keeps the page's left edge. */
+  padding: 14px 12px; margin: 0 -12px; border-radius: 10px;
   transition: background-color 400ms ease-out;
 }
 .lbl { margin: 0 0 4px; font-size: 13px; font-weight: 500; color: var(--text-muted); }

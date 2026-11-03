@@ -442,6 +442,7 @@
     if (drawer.hidden === !open) return;
     drawer.hidden = !open;
     $("scrim").hidden = !open;
+    for (const el of document.querySelectorAll(".bar, main")) el.inert = open; // the page behind is out of reach
     $("settings-btn").setAttribute("aria-expanded", String(open));
     if (open) (drawer.querySelector('[aria-pressed="true"]') || $("settings-close")).focus();
     else $("settings-btn").focus();

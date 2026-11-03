@@ -10,7 +10,8 @@
 - **Why:** None blocks a task; together they are the last 10% of polish.
 - **Priority:** P3
 
-## Overlapping poll loops after a tab switch (QA ISSUE-002)
+## ~~Overlapping poll loops after a tab switch (QA ISSUE-002)~~
+- **Fixed by /review on main, 2026-11-03:** only the newest poll paints and schedules the next one.
 - **What:** Guard `poll()` in `static/app.js` so a call while a fetch is in flight doesn't start a second timer.
 - **Why:** Switching tabs, waking the page or changing the refresh mode mid-fetch can briefly double the request rate.
 - **Severity / category:** Low / Functional. Loops converge on the next tick; data is never wrong.

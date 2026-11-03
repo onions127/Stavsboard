@@ -104,7 +104,7 @@ def build(scenario: str) -> Store:
         tick(30, calm, ctrs=CTRS[:2] + [ctr("c3", "api", state="exited", code=1)])
     elif scenario == "multi":
         tick(30, calm)
-        tick(40, host(cpu=94.0, mem_pct=92.0, cached=0.8 * GB), ctrs=CTRS[:2] + [ctr("c3", "api", state="exited", code=137)])
+        tick(40, host(cpu=94.0, mem_pct=92.0, cached=0.8 * GB), ctrs=CTRS[:2] + [ctr("c3", "api", state="exited", code=139)])
     elif scenario == "hot":
         tick(70, host(cpu=64.0, temp=91.0, hot=3))
     elif scenario == "swap":

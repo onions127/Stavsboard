@@ -164,3 +164,46 @@ def test_stop_shuts_down_promptly():
     p.stop()
     fake.block_stats.set()
     assert time.monotonic() - t0 < 1.0
+
+
+# Regression: review findings 3 and 5 — finished calls piled up in the in-flight table, and
+# container warnings outlived Docker going away. Found by /review on 2026-11-03.
+def test_inflight_table_keeps_only_running_calls_for_live_containers():
+    p, store, fake, clock = make()
+    for i in range(5):
+        running(fake, f"c{i}", f"job{i}")
+    p.poll_once()
+    fake.containers_list.clear()  # all removed (docker run --rm jobs finished)
+    clock.advance(3)
+    p.poll_once()
+    assert p._inflight == {}
+
+
+def test_docker_going_away_clears_container_warnings():
+    p, store, fake, clock = make()
+    running(fake, "a", "api")
+    p.poll_once()
+    clock.advance(3)
+    fake.containers_list[0]["State"] = "exited"
+    fake.inspect["a"] = {"State": {"Status": "exited", "ExitCode": 1}, "RestartCount": 0}
+    p.poll_once()
+    assert store.snapshot()["status"]["level"] == "error"
+    fake.list_error = FileNotFoundError("docker stopped")
+    p.poll_once()
+    assert store.snapshot()["active"] == []
+
+
+def test_stop_codes_reach_the_payload_as_not_crashed():
+    p, store, fake, clock = make()
+    running(fake, "a", "api")
+    running(fake, "b", "worker")
+    p.poll_once()
+    clock.advance(3)
+    for cid, oom in (("a", False), ("b", True)):
+        fake.containers_list[[c["Id"] for c in fake.containers_list].index(cid)]["State"] = "exited"
+        fake.inspect[cid] = {"State": {"Status": "exited", "ExitCode": 137, "OOMKilled": oom}, "RestartCount": 0}
+    p.poll_once()
+    items = {i["name"]: i for i in store.snapshot()["containers"]["items"]}
+    assert items["worker"]["crashed"] is True and items["api"]["crashed"] is False
+    assert [i["name"] for i in store.snapshot()["containers"]["items"]] == ["worker", "api"]
+    assert store.snapshot()["status"]["text"] == "Container worker exited with code 137."

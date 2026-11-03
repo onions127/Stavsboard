@@ -95,7 +95,7 @@ header shows "Watching since" with that time.
 | Memory | 90% or more for 10s | 97% or more for 10s |
 | Swap | 50% or more while memory is 90% or more, for 30s | 80% or more, same rule |
 | CPU temperature (Linux) | 85°C or more for 10s | 95°C or more for 10s |
-| Container | | It crashed (exited with a non-zero code) or restarted 3 times in 5 minutes |
+| Container | | It crashed (exited with a non-zero code; `docker stop` does not count, an out-of-memory kill does) or restarted 3 times in 5 minutes |
 
 A warning clears once the value stays 10 points below the amber line for 10s. Red steps back
 to amber once it stays 3 points below the red line for 10s.

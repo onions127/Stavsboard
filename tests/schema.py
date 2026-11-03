@@ -43,7 +43,8 @@ def check_snapshot(s: dict, trends: bool = False) -> None:
     assert c["state"] in ("loading", "ok", "absent", "denied")
     assert _opt(c["age_s"], NUM) and isinstance(c["stale"], bool)
     for item in c["items"]:
-        assert set(item) == {"id", "name", "state", "exit_code", "cpu", "mem"}
+        assert set(item) == {"id", "name", "state", "exit_code", "crashed", "cpu", "mem"}
+        assert isinstance(item["crashed"], bool)
         assert isinstance(item["name"], str)
 
     for a in s["active"]:

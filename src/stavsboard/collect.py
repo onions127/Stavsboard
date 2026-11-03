@@ -37,7 +37,9 @@ def read_temp(ps) -> float | None:
 
     for chip in PREFERRED_CHIPS:
         if chip in chips:
-            t = hottest(chips[chip])
+            # Zen 1 X-series k10temp: Tctl carries a +10-27°C fan offset; Tdie is the real die.
+            tdie = [e for e in chips[chip] if (e.label or "") == "Tdie"]
+            t = hottest(tdie or chips[chip])
             if t is not None:
                 return t
     for chip, entries in chips.items():

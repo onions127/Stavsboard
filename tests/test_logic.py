@@ -216,3 +216,30 @@ def test_swap_sentence():
     assert "swap" in texts
     status = logic.compose_status([texts["swap"]], e._last_sample)
     assert status["text"] == "Swap is busy: 2.2 GB of 4.0 GB in use."
+
+
+# Regression: review finding 4 — a warning never cleared once its metric stopped reporting.
+# Found by /review on 2026-11-03.
+@pytest.mark.parametrize("key, active, gone", [
+    ("swap", host(ram=95, swap=85), host(ram=95, swap=None)),  # swapoff -a
+    ("temp", host(temp=96), host(temp=None)),  # sensor vanished
+])
+def test_warning_closes_when_metric_disappears(key, active, gone):
+    e = Engine(started_wall=0)
+    t = run(e, [active] * 31)
+    assert level(e, key) == "error"
+    run(e, [gone], start=t)
+    assert level(e, key) == "good"
+    assert e.log_entries()[0]["end"] is not None
+
+
+# Regression: review finding 2 (user decision A) — `docker stop` (143, or 137 without an OOM
+# kill) turned the dashboard red. Found by /review on 2026-11-03.
+@pytest.mark.parametrize("code, oom, red", [(143, False, False), (137, False, False), (137, True, True),
+                                             (1, False, True), (139, False, True)])
+def test_deliberate_stop_is_not_a_crash(code, oom, red):
+    e = Engine(started_wall=0)
+    e.update_containers([ctr("running")], 0, 0)
+    e.update_containers([{**ctr("exited", code=code), "oom_killed": oom}], 3, 3)
+    assert (e.status()["level"] == "error") is red
+    assert logic.is_crash("exited", code, oom) is red

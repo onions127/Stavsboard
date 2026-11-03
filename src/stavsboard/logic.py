@@ -19,6 +19,15 @@ RESTART_LOOP_COUNT = 3  # D4: >= 3 restarts ...
 RESTART_LOOP_WINDOW_S = 300.0  # ... within 5 minutes
 
 
+def is_crash(state: str | None, code: int | None, oom_killed: bool | None = False) -> bool:
+    """An exited container crashed unless it exited 0 or was stopped on purpose: `docker stop`
+    ends with 143 (SIGTERM) or 137 (SIGKILL after the grace period). A 137 from the OOM killer
+    is still a crash (review decision A, 2026-11-03, refining D4)."""
+    if state != "exited" or code in (None, 0) or code == 143:
+        return False
+    return code != 137 or bool(oom_killed)
+
+
 @dataclass(frozen=True)
 class Rule:
     """One metric's thresholds (D2, D17, D19, D20). Times in seconds."""
@@ -88,11 +97,18 @@ class Engine:
         ram = sample.get("ram")
         for rule in RULES:
             value = sample.get(rule.key)
-            if value is None:
-                continue
-            if rule.gate_ram is not None and ram is None:
+            if value is None or (rule.gate_ram is not None and ram is None):
+                self._drop(self._rules[rule.key], wall)  # e.g. swapoff, sensor gone
                 continue
             self._step(rule, self._rules[rule.key], value, ram, mono, wall)
+
+    def _drop(self, st: _RuleState, wall: float) -> None:
+        """The metric stopped reporting: close its warning and forget pending windows."""
+        if st.entry is not None:
+            self._close(st.entry, wall)
+            st.entry = None
+        st.level = NONE
+        st.since.clear()
 
     def reset_sustain(self) -> None:
         for st in self._rules.values():
@@ -183,7 +199,7 @@ class Engine:
                 tr["pending_exit"] = False
             elif tr.get("pending_exit") and code is not None:
                 crashed, tr["pending_exit"] = True, False
-            if crashed and code not in (None, 0):
+            if crashed and is_crash(c["state"], code, c.get("oom_killed")):
                 if tr["exit_entry"] is None:
                     tr["exit_entry"] = self._open(f"exit:{cid}", c["name"], ERROR, wall,
                                                   kind="container", label=f"{c['name']} exited (code {code})")

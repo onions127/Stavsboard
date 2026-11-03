@@ -852,7 +852,7 @@ Same as A, plus containers already exited non-zero at startup raise a red warnin
 State: approved
 Actual answer: A) Seen transitions only (user answer to D4, 2026-11-03)
 Accepted scope: red warning + log entry when a container seen running exits with code != 0, or restarts >= 3 times in 5 min; exit 0 = muted "exited 0" row; exited before startup = red row "exit N" only; clears when running again or removed; pytest with fake container sequences
-History: none
+History: refined by /review on 2026-11-03 (user answer A): exit 143, and 137 without State.OOMKilled, are deliberate stops (`docker stop`, compose down) and show a muted "stopped" row with no warning; 137 with OOMKilled and other non-zero codes stay red. logic.is_crash.
 
 ### R4: Snapshot payload contract and time handling
 Finding: 4, P1, confidence 9/10, docs/designs/stavsboard-v1.md:236 ("snapshot payload shape and cadence"), :400 (R3-10 timezones), reviewer: eng review

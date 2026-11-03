@@ -77,7 +77,7 @@ class DockerPoller:
         self._pool: ThreadPoolExecutor | None = None
         self._pool_workers = None
         self._inflight: dict[str, object] = {}  # container id -> future still running (C3)
-        self._known: dict[str, dict] = {}  # id -> {"state", "exit_code", "restart_count"}
+        self._known: dict[str, dict] = {}  # id -> {"state", "exit_code", "oom_killed", "restart_count"}
         self._cpu_prev: dict[str, dict] = {}
         self._last_restart_check = None
         self._stop = threading.Event()
@@ -112,12 +112,13 @@ class DockerPoller:
             if isinstance(state, dict):
                 state = state.get("Status")
             item = {"id": cid[:12], "name": names[0].lstrip("/") if names else cid[:12], "state": state,
-                    "exit_code": None, "restart_count": None, "cpu": None, "mem": None, "_id": cid}
+                    "exit_code": None, "oom_killed": None, "restart_count": None, "cpu": None, "mem": None, "_id": cid}
             known = self._known.get(cid)
             if known is None or known["state"] != state or check_restarts:
                 to_inspect.append(item)
             else:
-                item["exit_code"], item["restart_count"] = known["exit_code"], known["restart_count"]
+                item["exit_code"], item["oom_killed"] = known["exit_code"], known["oom_killed"]
+                item["restart_count"] = known["restart_count"]
             if state == "running":
                 to_stat.append(item)
             items.append(item)
@@ -145,6 +146,7 @@ class DockerPoller:
             if kind == "inspect":
                 st = result.get("State") or {}
                 item["exit_code"] = st.get("ExitCode")
+                item["oom_killed"] = st.get("OOMKilled")
                 item["restart_count"] = result.get("RestartCount")
                 inspected.add(item["_id"])
             else:
@@ -161,14 +163,18 @@ class DockerPoller:
                 if old is not None:
                     item["restart_count"] = old["restart_count"]
                     if old["state"] == item["state"]:
-                        item["exit_code"] = old["exit_code"]
+                        item["exit_code"], item["oom_killed"] = old["exit_code"], old["oom_killed"]
                         known[cid] = old
                 continue
-            known[cid] = {"state": item["state"], "exit_code": item["exit_code"],
+            known[cid] = {"state": item["state"], "exit_code": item["exit_code"], "oom_killed": item["oom_killed"],
                           "restart_count": item["restart_count"]}
         self._known = known
         live = {i["_id"] for i in items}
         self._cpu_prev = {k: v for k, v in self._cpu_prev.items() if k in live}
+        # Only unfinished calls for live containers matter to skip-if-busy; drop the rest so
+        # short-lived containers (docker run --rm) don't pile up results forever.
+        self._inflight = {k: f for k, f in self._inflight.items()
+                          if not f.done() and k.rsplit(":", 1)[0] in live}
         for item in items:
             del item["_id"]
         self.store.put_docker("ok", items)

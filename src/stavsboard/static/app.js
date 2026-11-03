@@ -18,6 +18,7 @@
     sort: "cpu",
     logOpen: saved.get("stavsboard.log", "0") === "1",
     timer: null,
+    seq: 0,
     stalledPolls: 0,
     pendingMode: null,
     title: "",
@@ -57,23 +58,30 @@
   }
 
   // ---- polling ---------------------------------------------------------------------------------
+  // Only the newest poll paints and schedules the next one, so a slow older response
+  // (from before a tab switch or mode change) can't overwrite newer data or start a second loop.
   async function poll() {
     clearTimeout(S.timer);
+    const seq = ++S.seq;
     const ctrl = new AbortController();
     const abort = setTimeout(() => ctrl.abort(), 4000);
     try {
       const r = await fetch(`api/snapshot${S.tab === "trends" ? "?trends=1" : ""}`, { cache: "no-store", signal: ctrl.signal });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const snap = await r.json();
+      if (seq !== S.seq) return;
       S.snap = snap;
       S.lastOk = performance.now();
       S.stalledPolls = snap.stalled ? S.stalledPolls + 1 : 0;
       render();
     } catch {
-      paintConnection();
+      if (seq === S.seq) paintConnection();
     } finally {
       clearTimeout(abort);
-      S.timer = setTimeout(poll, (S.snap?.interval_s ?? 1) * 1000);
+      if (seq === S.seq) {
+        clearTimeout(S.timer);
+        S.timer = setTimeout(poll, (S.snap?.interval_s ?? 1) * 1000);
+      }
     }
   }
 
@@ -310,7 +318,7 @@
       body.innerHTML = "";
       return;
     }
-    const crashed = c.items.filter((i) => i.state === "exited" && i.exit_code);
+    const crashed = c.items.filter((i) => i.crashed);
     const running = c.items.filter((i) => i.state === "running");
     if (c.stale) { sum.className = "old"; text(sum, `data ${Math.round(c.age_s)}s old`); }
     else if (crashed.length) { sum.className = "bad"; text(sum, `${crashed.length} exited`); }
@@ -322,10 +330,10 @@
       if (i.state === "running") {
         dot = "";
         mid = i.cpu === null ? "—" : pct1(i.cpu);
-      } else if (i.state === "exited" && i.exit_code) {
+      } else if (i.crashed) {
         dot = "off"; mid = `exit ${i.exit_code}`; cls = "n exit";
       } else if (i.state === "exited") {
-        mid = "exited 0"; cls = "n m";
+        mid = i.exit_code ? "stopped" : "exited 0"; cls = "n m"; // 143 / 137: docker stop
       } else {
         mid = esc(i.state || "—"); cls = "n m";
       }

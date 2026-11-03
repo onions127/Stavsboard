@@ -48,7 +48,12 @@ def test_wheel_installs_and_serves_page_and_font(tmp_path):
     venv = tmp_path / "venv"
     subprocess.run(["uv", "venv", "--python", "3.12", str(venv)], check=True, capture_output=True)
     py = venv / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
-    subprocess.run(["uv", "pip", "install", "--python", str(py), str(wheel)], check=True, capture_output=True)
+    # Pin dependencies to uv.lock so an upstream release can't turn CI red with no code change.
+    pins = tmp_path / "constraints.txt"
+    subprocess.run(["uv", "export", "--frozen", "--no-dev", "--no-hashes", "--no-emit-project", "-o", str(pins)],
+                   cwd=ROOT, check=True, capture_output=True)
+    subprocess.run(["uv", "pip", "install", "--python", str(py), "-c", str(pins), str(wheel)], check=True,
+                   capture_output=True)
     exe = venv / ("Scripts/stavsboard.exe" if os.name == "nt" else "bin/stavsboard")
     port = free_port()
     proc = subprocess.Popen([str(exe), "--port", str(port)], cwd=tmp_path, stdout=subprocess.PIPE,
@@ -62,7 +67,9 @@ def test_wheel_installs_and_serves_page_and_font(tmp_path):
                 break
             except OSError:
                 if time.monotonic() > deadline or proc.poll() is not None:
-                    raise
+                    proc.kill()
+                    output = proc.communicate(timeout=10)[0].decode(errors="replace")
+                    raise AssertionError(f"stavsboard did not serve; its output:\n{output}") from None
                 time.sleep(0.3)
         assert "Stavsboard" in page
         font = urllib.request.urlopen(base + "/static/fonts/instrument-serif-400.woff2", timeout=5).read()
@@ -72,3 +79,11 @@ def test_wheel_installs_and_serves_page_and_font(tmp_path):
     finally:
         proc.terminate()
         proc.wait(10)
+
+
+# Regression: review finding 8 — --port 70000 crashed with OverflowError; --port 0 printed localhost:0.
+# Found by /review on 2026-11-03.
+@pytest.mark.parametrize("bad", ["0", "70000", "-1"])
+def test_port_must_be_in_range(bad):
+    with pytest.raises(SystemExit):
+        cli.parse_args(["--port", bad])

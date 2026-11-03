@@ -26,9 +26,16 @@ def bind(host: str, port: int) -> socket.socket:
     return sock
 
 
+def _port(value: str) -> int:
+    port = int(value)
+    if not 1 <= port <= 65535:
+        raise argparse.ArgumentTypeError("must be between 1 and 65535")
+    return port
+
+
 def parse_args(argv=None) -> argparse.Namespace:
     p = argparse.ArgumentParser(prog="stavsboard", description="A calm, read-only dashboard for this machine.")
-    p.add_argument("--port", type=int, default=DEFAULT_PORT, help=f"port to serve on (default {DEFAULT_PORT})")
+    p.add_argument("--port", type=_port, default=DEFAULT_PORT, help=f"port to serve on (default {DEFAULT_PORT})")
     p.add_argument("--lan", action="store_true",
                    help="also serve on your local network (no login: anyone on it can view and switch refresh mode)")
     p.add_argument("--mode", choices=("accurate", "low"), default="accurate",

@@ -6,7 +6,7 @@ import threading
 import time
 from collections import deque
 
-from .logic import Engine, RULES
+from .logic import Engine, RULES, is_crash
 
 # D7: refresh modes. Host/Docker cadences, Docker call timeout and worker count, and when
 # container data counts as stale. All seconds.
@@ -86,6 +86,9 @@ class Store:
                     if name not in names:
                         del self._ctr_rings[name]
             else:
+                # Docker is gone or locked: the Containers section hides, so its warnings
+                # must not linger in the status sentence unexplained.
+                self.engine.update_containers([], mono, wall)
                 self._docker = {"state": state, "items": [], "mono": None}
                 self._ctr_rings.clear()
             self.version += 1
@@ -167,14 +170,16 @@ def _public_active(e: dict) -> dict:
 
 
 def _order_containers(items: list[dict]) -> list[dict]:
-    """Crashed first, then running, then other stopped containers; by name within each."""
+    """Crashed first (not deliberate stops), then running, then other stopped containers; by name within each."""
 
     def rank(c):
-        if c["state"] == "exited" and c.get("exit_code") not in (None, 0):
+        if is_crash(c["state"], c.get("exit_code"), c.get("oom_killed")):
             return 0
         return 1 if c["state"] == "running" else 2
 
     out = []
     for c in sorted(items, key=lambda c: (rank(c), c["name"].lower())):
-        out.append({k: c.get(k) for k in ("id", "name", "state", "exit_code", "cpu", "mem")})
+        row = {k: c.get(k) for k in ("id", "name", "state", "exit_code", "cpu", "mem")}
+        row["crashed"] = is_crash(c["state"], c.get("exit_code"), c.get("oom_killed"))
+        out.append(row)
     return out

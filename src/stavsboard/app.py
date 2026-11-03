@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ipaddress
+import json
 from importlib.resources import files
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -15,6 +16,7 @@ from .store import MODES, Store
 
 STATIC_DIR = Path(str(files("stavsboard") / "static"))
 LOCAL_NAMES = {"localhost", "127.0.0.1", "::1"}
+MAX_SETTINGS_BODY = 1024  # bytes; {"mode": "accurate"} is 20
 SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "no-referrer",
@@ -109,8 +111,13 @@ def create_app(store: Store, *, lan: bool = False, hostname: str = "", static_di
         origin = request.headers.get("origin")
         if origin is not None and not origin_matches(origin, request.headers.get("host")):
             return PlainTextResponse("Cross-site request refused", status_code=403)
+        raw = b""
+        async for chunk in request.stream():  # capped: anyone on the LAN can reach this
+            raw += chunk
+            if len(raw) > MAX_SETTINGS_BODY:
+                return PlainTextResponse("Request too large", status_code=413)
         try:
-            body = await request.json()
+            body = json.loads(raw)
         except ValueError:
             return PlainTextResponse("Bad JSON", status_code=400)
         mode = body.get("mode") if isinstance(body, dict) else None

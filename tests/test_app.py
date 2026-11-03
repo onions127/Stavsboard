@@ -123,3 +123,12 @@ def test_no_write_routes_beyond_settings(setup):
     routes = {(m, r.path) for r in client.app.routes for m in getattr(r, "methods", ()) or ()}
     writes = {(m, p) for m, p in routes if m not in ("GET", "HEAD")}
     assert writes == {("POST", "/api/settings")}
+
+
+# Regression: review finding 1 — POST /api/settings buffered any body size, so a LAN client
+# could exhaust memory. Found by /review on 2026-11-03.
+def test_settings_body_is_capped(setup):
+    client, store = setup
+    big = '{"mode":"low","pad":"' + "x" * 5000 + '"}'
+    r = client.post("/api/settings", content=big, headers={"content-type": "application/json"})
+    assert r.status_code == 413 and store.mode == "accurate"

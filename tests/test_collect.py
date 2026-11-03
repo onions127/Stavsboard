@@ -189,3 +189,10 @@ def test_mode_switch_changes_interval_and_rings_fill_to_60():
     assert [r["key"] for r in snap["trends"]] == ["cpu", "ram", "swap"]
     store.set_mode("low")
     assert store.snapshot()["interval_s"] == 2.0
+
+
+# Regression: review finding 6 — Zen 1 X-series k10temp Tctl carries a +10-27°C offset;
+# Tdie is the real die temperature. Found by /review on 2026-11-03.
+def test_amd_prefers_tdie_over_offset_tctl():
+    temps = {"k10temp": [Temp("Tctl", 92.0, None, None), Temp("Tdie", 72.0, None, None)]}
+    assert read_temp(FakePs(temps=temps)) == 72.0

@@ -129,11 +129,24 @@ button {
 .seg button { color: var(--text-muted); padding-bottom: 1px; border-bottom: 2px solid transparent; }
 .seg button[aria-pressed="true"] { color: var(--ink); border-bottom-color: var(--ink); }
 
-/* ---- settings ---------------------------------------------------------------------- */
-.settings { display: grid; gap: 10px; padding: 16px 0 4px; font-size: 13px; }
-.srow { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
-.slabel { width: 64px; color: var(--text-muted); font-weight: 500; }
-.shint { color: var(--text-muted); }
+/* ---- settings drawer: slides in from the right, off the main screen ------------------------ */
+.scrim { position: fixed; inset: 0; z-index: 9; background: rgb(0 0 0 / 0.18); animation: fade-in 200ms ease-out; }
+:root[data-theme="dark"] .scrim { background: rgb(0 0 0 / 0.45); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .scrim { background: rgb(0 0 0 / 0.45); } }
+.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 10;
+  width: min(320px, 88vw); overflow-y: auto;
+  display: grid; align-content: start; gap: 24px;
+  padding: 22px 24px; background: var(--ground); border-left: 1px solid var(--rule);
+  font-size: 14px; animation: drawer-in 200ms ease-out;
+}
+.drawer-h { display: flex; justify-content: space-between; align-items: baseline; }
+.drawer-h h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.srow { display: grid; gap: 8px; }
+.slabel { color: var(--text-muted); font-size: 13px; font-weight: 500; }
+.shint { color: var(--text-muted); font-size: 13px; }
+@keyframes drawer-in { from { transform: translateX(100%); } to { transform: none; } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 
 /* ---- status sentence + warnings ---------------------------------------------------------- */
 .status { display: flex; gap: 12px; align-items: baseline; margin: 20px 0 8px; }

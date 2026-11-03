@@ -429,10 +429,30 @@
     if (S.snap) paintWarnings(S.snap);
   });
 
-  $("settings-btn").addEventListener("click", () => {
-    const panel = $("settings");
-    panel.hidden = !panel.hidden;
-    $("settings-btn").setAttribute("aria-expanded", String(!panel.hidden));
+  // Settings drawer: Esc, the Close button or a click outside closes it; focus stays inside
+  // while open and returns to the Settings button after.
+  function setDrawer(open) {
+    const drawer = $("settings");
+    if (drawer.hidden === !open) return;
+    drawer.hidden = !open;
+    $("scrim").hidden = !open;
+    $("settings-btn").setAttribute("aria-expanded", String(open));
+    if (open) (drawer.querySelector('[aria-pressed="true"]') || $("settings-close")).focus();
+    else $("settings-btn").focus();
+  }
+  $("settings-btn").addEventListener("click", () => setDrawer(true));
+  $("settings-close").addEventListener("click", () => setDrawer(false));
+  $("scrim").addEventListener("click", () => setDrawer(false));
+  document.addEventListener("keydown", (ev) => {
+    const drawer = $("settings");
+    if (drawer.hidden) return;
+    if (ev.key === "Escape") { ev.preventDefault(); setDrawer(false); return; }
+    if (ev.key !== "Tab") return;
+    const items = [...drawer.querySelectorAll("button")];
+    const first = items[0], last = items[items.length - 1];
+    if (ev.shiftKey && document.activeElement === first) { ev.preventDefault(); last.focus(); }
+    else if (!ev.shiftKey && document.activeElement === last) { ev.preventDefault(); first.focus(); }
+    else if (!drawer.contains(document.activeElement)) { ev.preventDefault(); first.focus(); }
   });
 
   function applyTheme(choice) {

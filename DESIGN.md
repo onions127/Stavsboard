@@ -169,10 +169,14 @@ status wash (`warning-wash` / `error-wash`) behind a section that's in trouble.
   CPU). Row = label + current value (20px, tabular) + a full-width 40px sparkline, fixed
   0-100% scale, no axes, `good` line with over-threshold spans in the alarm hue. Muted
   caption "Last 60 seconds". A status dot beside the "Now" tab label shows non-calm state.
-- **Settings panel:** a "Settings" text button in the app bar opens an inline panel (no
-  modal, no card) with two rows using the underline pattern: Theme "Auto · Light · Dark"
+- **Settings drawer:** a "Settings" text button in the app bar opens a sidebar that slides
+  in from the right (320px, at most 88% of the screen; 200ms ease-out). Flat: `ground`
+  background, a 1px `rule` left edge, no shadow, over a light scrim (black 18% light / 45%
+  dark). It holds two stacked rows using the underline pattern: Theme "Auto · Light · Dark"
   (default Auto, kept per device, applied before first paint) and Refresh "Accurate · Low
   impact" (server-wide; Low impact = 2s host refresh). Editable from any allowed viewer.
+  Close, Esc or a click outside closes it; focus stays inside while open and returns to the
+  Settings button.
 - **CPU temperature:** when the machine reports it (Linux), appended to the CPU sub-line
   ("16 cores · 54°C"); it takes the alarm hue when hot. Hidden where unsupported.
 - **Alarm state (any gauge):** the graphic, number and sub-bar switch to `warning` or
@@ -223,3 +227,4 @@ status wash (`warning-wash` / `error-wash`) behind a section that's in trouble.
 | 2026-11-03 | Now screen = variant B "Horizon bands" (/design-shotgun) | Wide CPU half-dial (72px number, per-core bars along base); memory used/cached/free bar + legend + swap bar. Cached segment Linux-only (psutil has none on Windows). Reference: docs/design/now-variants.html, section B |
 | 2026-11-03 | /plan-design-review DR1-DR17 applied | Half-dial + capacity bar geometry, container-query gauge sizes (52/72px), 375px budget, max-32 per-core bars, `text-muted-on-wash` (old muted failed AA on washes), segment gaps, Log · N, Trends rows, Auto/Light/Dark, tab titles, 44px hit areas. See docs/designs/stavsboard-v1.md "Design Review Amendments" |
 | 2026-11-03 | /plan-eng-review: Settings panel (Theme + Refresh mode), CPU temperature in the CPU sub-line | User asked for a low-impact/accurate refresh setting (D6/D7/D16); the monitored machine is a Linux server, so CPU temperature joined v1 (D17-B) |
+| 2026-11-03 | Settings moved from an inline panel to a right-side sidebar drawer | User: "change the settings bar to be a sidebar menu instead of clutter on the main screen" |

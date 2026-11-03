@@ -22,7 +22,12 @@
     <button class="textbtn hit" id="settings-btn" aria-expanded="false" aria-controls="settings">Settings</button>
   </header>
 
-  <section class="settings" id="settings" aria-label="Settings" hidden>
+  <div class="scrim" id="scrim" hidden></div>
+  <aside class="drawer" id="settings" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
+    <div class="drawer-h">
+      <h2 id="settings-title">Settings</h2>
+      <button class="textbtn hit" id="settings-close">Close</button>
+    </div>
     <div class="srow">
       <span class="slabel" id="theme-lbl">Theme</span>
       <span class="seg" role="group" aria-labelledby="theme-lbl">
@@ -37,7 +42,7 @@
       </span>
       <span class="shint" id="mode-hint">Every second. Applies to everyone viewing.</span>
     </div>
-  </section>
+  </aside>
 
   <main>
     <div class="panel" id="panel-now" role="tabpanel" aria-labelledby="tab-now">

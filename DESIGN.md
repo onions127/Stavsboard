@@ -6,6 +6,7 @@ colors:
   ground: "#E3E7E1"
   ink: "#1E2422"
   text-muted: "#5F6963"
+  text-muted-on-wash: "#4F5853"
   track: "#CDD3CC"
   rule: "#D3D9D2"
   good: "#1F8A4C"
@@ -20,6 +21,7 @@ colors:
   dark-ground: "#181C1E"
   dark-ink: "#E3E6E1"
   dark-text-muted: "#8D9691"
+  dark-text-muted-on-wash: "#A3ABA6"
   dark-track: "#2E3539"
   dark-rule: "#272D31"
   dark-good: "#4CC38A"
@@ -38,7 +40,7 @@ typography:
   number:
     fontFamily: Schibsted Grotesk
     fontWeight: 500
-    fontSize: clamp(2.75rem, 2.3rem + 1.6vw, 3.25rem)
+    fontSize: 4.5rem
     letterSpacing: -0.02em
     fontFeature: tnum
   body:
@@ -94,7 +96,9 @@ manual toggle. Daytime desk use favors light; checking a phone at night favors d
 Dark surfaces keep the same hierarchy: ground, then washes, with ink lightened rather than
 simply inverted. Green and red are brightened in dark mode to hold contrast.
 Text-on-color uses the `*-text` tokens (e.g. `warning-text`), not the mark colors, to meet
-4.5:1 on the ground.
+4.5:1 on the ground. Inside a washed section, secondary text uses `text-muted-on-wash`
+(light 5.72:1 / 5.34:1, dark 5.66:1 / 6.59:1 on amber / red washes); plain `text-muted` fails
+there (4.13-4.42:1).
 
 ## Typography
 
@@ -108,18 +112,23 @@ Text-on-color uses the `*-text` tokens (e.g. `warning-text`), not the mark color
   14px.
 - Both are OFL and **self-hosted as woff2** in the app (no CDN; the dashboard may run
   offline on a LAN). Weights: Instrument Serif 400; Schibsted Grotesk 400, 500, 600.
-- Scale: status 28-34px · number 44-52px · body 14px · label 13px. Levels differ by size,
+- Scale: status 28-34px · number 52px (compact) / 72px (full) · body 14px · label 13px. Levels differ by size,
   not only by weight.
 
 ## Layout
 
-- **Order (top to bottom):** app bar (wordmark, Now/Trends, theme toggle) → status
+- **Order (top to bottom):** app bar (wordmark, Now/Trends, Settings) → status
   sentence → recent-warnings line → CPU (left) + Memory (right) → Top processes (left) +
   Containers (right).
 - **Desktop and half-width tab (>= 700px):** two equal columns, 40px gap, with one 1px
   `rule` between the gauge row and the lists. App padding is 24-28px.
-- **Phone (< 700px):** a single column in the same order. Gauges shrink to 104px, with
-  22px gaps.
+- **Phone (< 700px):** a single column in the same order, 16px gutters, 22px gaps.
+- **Gauges size by their column, not the viewport** (CSS container queries): column
+  >= 430px = full (240×128 half-dial, 72px number); < 430px = compact (200×108, 52px);
+  < 340px = the number stacks above the dial.
+- **375px height budget:** app bar 40 · status ~80 (typical; the sentence wraps freely) ·
+  warnings 24 · CPU 150 · memory 150 ≈ 520px, so about 4 process rows show above a 667px
+  fold. Top 10 and containers continue below.
 - Max content width is 1320px, left-aligned.
 
 ## Elevation & Depth
@@ -129,39 +138,64 @@ status wash (`warning-wash` / `error-wash`) behind a section that's in trouble.
 
 ## Shapes
 
-- Arc/ring strokes use round caps. CPU is a 270° open arc (stroke 10). Memory is a full
-  ring (stroke 14).
-- Per-core bars use a 3px top radius. Swap is a 6px bar.
+- CPU is a 180° half-dial, stroke 16, round caps (variant B).
+- Memory is an 18px capacity bar (radius 9) split used / cached / free with 2px
+  `ground`-colored gaps between segments. Swap is a 6px bar.
+- Per-core bars use a 3px top radius.
 - An alarm wash uses `rounded.lg` (10px). The app frame uses 12px. Nothing else is
   rounded.
 
 ## Components
 
 - **Status sentence:** a 12px dot plus the serif sentence. The dot is `good`, `warning` or
-  `error`.
-- **Warnings line:** inline items. Ongoing warnings use `warning-text` weight 600; past
-  items are muted, with times in ink. When nothing is active, show "No active warnings"
-  in `good-text` (contrast 4.91:1; the mark color `good` is 3.5:1 and is only for graphics).
-- **CPU gauge:** open arc + big number + a "16 cores" sub-line + per-core bars of varying
-  height (one flexible bar per core, height = load). Hot cores turn `warning`. It must
-  never look like a grid of equal tiles.
-- **Memory gauge:** a ring for used/total + big number + "x of y GB" + a separate swap bar.
+  `error`, or a hollow `text-muted` ring when loading, disconnected or stalled. It names
+  the worst active warning (error before warning, then newest) plus a muted "· N more".
+  It wraps freely; it is never truncated.
+- **Warnings line:** every active warning + the latest past item + a "Log · N" text
+  button. Ongoing warnings use `warning-text` weight 600; past items are muted, with times
+  in ink. When nothing is active, show "No active warnings" in `good-text` (contrast
+  4.91:1; the mark color `good` is 3.5:1 and is only for graphics). "Log · N" expands an
+  inline list (start, peak, duration, or "ongoing since HH:MM") headed "Watching since
+  HH:MM".
+- **CPU gauge:** half-dial + big number + a "16 cores" sub-line + per-core bars along the
+  base, height = load. At most 32 bars: one per core up to 32 (3px gap, 1px above 16
+  cores, min width 2px); above 32 cores, adjacent cores are grouped and each bar shows the
+  busiest core ("64 cores · grouped"). Hot cores turn `warning`. It must never look like a
+  grid of equal tiles.
+- **Memory gauge:** big number + "x of y GB" + the capacity bar + a legend ("Used 4.5 GB ·
+  Cached 3.2 GB · Free 8.3 GB") + the swap bar with "Swap x of y GB". Windows has no
+  cached figure: used / free only, with a 2-item legend.
+- **Trends tab:** one column of rows (CPU, Memory, Swap, then each running container's
+  CPU). Row = label + current value (20px, tabular) + a full-width 40px sparkline, fixed
+  0-100% scale, no axes, `good` line with over-threshold spans in the alarm hue. Muted
+  caption "Last 60 seconds". A status dot beside the "Now" tab label shows non-calm state.
+- **Settings panel:** a "Settings" text button in the app bar opens an inline panel (no
+  modal, no card) with two rows using the underline pattern: Theme "Auto · Light · Dark"
+  (default Auto, kept per device, applied before first paint) and Refresh "Accurate · Low
+  impact" (server-wide; Low impact = 2s host refresh). Editable from any allowed viewer.
+- **CPU temperature:** when the machine reports it (Linux), appended to the CPU sub-line
+  ("16 cores · 54°C"); it takes the alarm hue when hot. Hidden where unsupported.
 - **Alarm state (any gauge):** the graphic, number and sub-bar switch to `warning` or
   `error`, and a wash appears behind the gauge. The state switch fades in over 400ms.
 - **Lists (processes, containers):** plain rows divided by `rule`. Numbers are
   right-aligned and tabular. The CPU/RAM toggle is text with a 2px ink underline on the
   active option. Container dots are `good` when running and `error` when exited; an
-  exited container also shows red "exit N" text.
+  exited container also shows red "exit N" text. Names are one line with an end
+  ellipsis (full name in `title`); numeric columns are a fixed 72px. Rows reorder
+  instantly; a row newly entering fades in over 150ms. Unavailable cells show a muted "—".
 - **Stale / disconnected:** numbers in `text-muted` plus a muted sentence ("Disconnected,
-  data 12s old"). This is never shown as calm green.
+  data 12s old"). This is never shown as calm green. Loading shows "—" and "Connecting…".
+- **Tab title:** "Stavsboard" · "● RAM 91% · Stavsboard" · "○ Disconnected · Stavsboard".
 - **Focus-visible:** a 2px ink outline with a 2px offset on every interactive element.
+- **Hit areas:** at least 44×44px on every control, through padding.
 
 ## Do's and Don'ts
 
 - Do: keep green on graphics and status marks, not on body text.
 - Do: show trouble with a hue change plus a wash, both together.
 - Do: update numbers instantly with tabular figures.
-- Do: keep the status sentence one line on desktop and at most 3 lines on phone.
+- Do: keep the status sentence short by template (condition, culprit, amount); it wraps
+  rather than truncates.
 - Don't: wrap sections in cards, add shadows, or nest containers.
 - Don't: use a grid of equal tiles (pegboard) for cores, or any glowing edges or
   gradients.
@@ -187,3 +221,5 @@ status wash (`warning-wash` / `error-wash`) behind a section that's in trouble.
 | 2026-11-03 | Layout: warnings top, CPU left, Memory right, lists below | User-specified layout |
 | 2026-11-03 | Instrument Serif only for the status sentence | Measured: no tabular figures, so live numbers would jitter |
 | 2026-11-03 | Now screen = variant B "Horizon bands" (/design-shotgun) | Wide CPU half-dial (72px number, per-core bars along base); memory used/cached/free bar + legend + swap bar. Cached segment Linux-only (psutil has none on Windows). Reference: docs/design/now-variants.html, section B |
+| 2026-11-03 | /plan-design-review DR1-DR17 applied | Half-dial + capacity bar geometry, container-query gauge sizes (52/72px), 375px budget, max-32 per-core bars, `text-muted-on-wash` (old muted failed AA on washes), segment gaps, Log · N, Trends rows, Auto/Light/Dark, tab titles, 44px hit areas. See docs/designs/stavsboard-v1.md "Design Review Amendments" |
+| 2026-11-03 | /plan-eng-review: Settings panel (Theme + Refresh mode), CPU temperature in the CPU sub-line | User asked for a low-impact/accurate refresh setting (D6/D7/D16); the monitored machine is a Linux server, so CPU temperature joined v1 (D17-B) |

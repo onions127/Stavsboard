@@ -584,17 +584,1200 @@ Task JSONL not persisted: jq is not installed (install jq for /autoplan aggregat
 
 Approval readiness: PASS (D1-D14, each backed by the user's answer in /plan-ceo-review on 2026-11-03).
 
+## Design Review Amendments (2026-11-03, /plan-design-review)
+
+These supersede earlier sections and DESIGN.md where they conflict (DESIGN.md is updated to
+match). Visual reference: variant B "Horizon bands", `docs/design/now-variants.html`.
+
+### Decision ledger
+
+| ID | Item | Decision (user answer) |
+|---|---|---|
+| DR1 | Phone layout / 375px budget | 1A: same order; under 700px the half-dial is 200×108 and numbers 52px. Budget at 375px: app bar 40 · status ~80 (typical, see DR5) · warnings 24 · CPU 150 · memory 150 ≈ 520px, so ~4 process rows show above a 667px fold. Full top 10 + containers below |
+| DR2 | Warning log surface | 2A: warnings line = every active warning + latest past item + "Log · N" text button. Tap expands an inline list below (start, peak, duration, or "ongoing since HH:MM"); list header "Watching since 09:12" (D11). Collapsed by default, state kept per device |
+| DR3 | Per-section states | 3A: table below |
+| DR4 | Severity + multiple warnings | 4A: amber = strain (sustained high CPU/RAM/swap); red = broken/critical (container exited non-zero, critical RAM/swap tier; numbers from eng review). Dot + sentence use the worst active warning (red > amber, then newest) + muted "· N more". Warnings line lists all active. Each section washes by its own severity |
+| DR5 | Long status sentences | 5B: no truncation; the sentence wraps freely. DR1's 80px status figure is typical, not a cap |
+| DR6 | Desktop number size | 6A: keep 72px at ≥ 430px column width; number token becomes 52-72px |
+| DR7 | Per-core bars at high core counts | 7A: max 32 bars. ≤ 32 cores: one bar per core, gap 3px (1px above 16 cores), min width 2px. > 32: adjacent cores grouped into 32 bars, height = busiest core in the group; sub-line "64 cores · grouped" |
+| DR8 | DESIGN.md vs variant B | 8A: DESIGN.md Shapes/Components/Layout rewritten for B (done in this step) |
+| DR9 | Muted text on washes | 9A: new token `text-muted-on-wash` light #4F5853 (5.72:1 amber wash, 5.34:1 red wash), dark #A3ABA6 (5.66:1, 6.59:1). Replaces `text-muted` inside a washed section. Measured: old muted was 4.42 / 4.37 / 4.13:1 |
+| DR10 | Memory bar segment edges | 10A: 2px `ground`-colored gap between used / cached / free |
+| DR11 | Half-width tab overflow | 11A: gauges size by column width via CSS container queries. Column ≥ 430px: full B (240px dial, 72px). < 430px: compact (200px dial, 52px). < 340px: number stacks above the dial. One column under 700px viewport |
+| DR12 | Keyboard / screen reader / touch | 12A: ≥ 44×44px hit area on every control (padding, no visual change); Now/Trends `role=tablist` with arrow keys; CPU · RAM and theme options `aria-pressed`; Log · N `aria-expanded`; `header`/`main` landmarks and labelled `section`s; status sentence `aria-live=polite`, announced only when its text changes; dial/bars/strip `aria-hidden` with numbers as text; 2px ink focus ring |
+| DR13 | Theme toggle | 13A: "Auto · Light · Dark" text options, active underlined; default Auto; saved in localStorage (try/catch, fallback Auto); applied before first paint |
+| DR14 | Trends tab | 14A: one column of rows at all widths: CPU %, Memory %, Swap %, then one row per running container (CPU %). Row = label + current value (tabular, 20px) + full-width 40px sparkline, fixed 0-100% scale, no axes/grid, `good` line with over-threshold spans in the warning color. Muted caption "Last 60 seconds". Under 60 samples the line starts from the right edge. No status sentence; a status dot beside the "Now" tab label shows non-calm state |
+| DR15 | Long names in lists | 15A: one line, end ellipsis, full name in `title`; numeric columns fixed 72px, right-aligned |
+| DR16 | Row reorder motion | 16A: instant reorder, no slide; a row newly entering the top 10 fades in over 150ms; leaving rows just disappear; no fade under reduced motion |
+| DR17 | Tab titles | 17A: calm/loading "Stavsboard" · warning "● RAM 91% · Stavsboard" · error "● api exited · Stavsboard" · disconnected/stalled "○ Disconnected · Stavsboard". Short form of the worst warning; updated only when the text changes |
+
+### State table (DR3)
+
+```
+SECTION        | LOADING              | EMPTY                 | ERROR / STALE                          | WARNING            | PARTIAL
+---------------|----------------------|-----------------------|----------------------------------------|--------------------|-----------------
+Status line    | grey hollow dot,     | n/a                   | Disconnected (>5s) or Collector        | worst warning,     | n/a
+               | muted "Connecting…"  |                       | stalled: hollow text-muted dot,        | "· N more" (DR4)   |
+               |                      |                       | sentence replaced ("Disconnected,      |                    |
+               |                      |                       | data 12s old" / "Collector stalled")   |                    |
+CPU / Memory   | numbers "—", tracks  | n/a                   | numbers + graphics text-muted, last    | hue + wash         | Windows: memory
+               | empty                |                       | values kept                            |                    | bar used/free only,
+               |                      |                       |                                        |                    | 2-item legend
+Processes      | rows absent, "—"     | n/a                   | rows muted (whole-app stale)           | n/a                | AccessDenied cell =
+               |                      |                       |                                        |                    | muted "—"
+Containers     | section hidden until | Docker up, 0 ctrs:    | Docker unreachable: hidden, Processes  | exited non-zero:   | stats timeout: that
+               | first poll           | muted "No containers" | spans the row. Denied: muted "No       | red dot + "exit N" | row's CPU "—"
+               |                      |                       | access to Docker". Stale: rows muted,  |                    |
+               |                      |                       | heading "data 14s old" in warning-text |                    |
+Trends         | lines start at right | n/a                   | lines muted when disconnected          | over-threshold     | n/a
+               | edge                 |                       |                                        | spans amber/red    |
+Warning log    | n/a                  | "No warnings since    | n/a                                    | ongoing entries in | n/a
+               |                      | 09:12" in good-text   |                                        | warning-text       |
+```
+On tab wake (`visibilitychange`) the client checks data age before painting, so stale green never
+flashes. Containers loading stays hidden (not non-calm) until 3x poller cadence since start (R3-3).
+
+### Journey storyboard
+
+```
+STEP | USER DOES                       | USER FEELS           | PLAN SPECIFIES
+-----|---------------------------------|----------------------|------------------------------------------
+1    | opens tab / phone               | "is it okay?"        | Connecting… (never green) → sentence first
+2    | reads "All calm."               | relief in 1 second   | serif sentence + green dot, 0 alarm color
+3    | something's wrong               | alerted, not alarmed | worst-first sentence, wash on the section
+4    | "what happened while I was away"| curious              | Log · N, one tap (DR2)
+5    | laptop wakes / Wi-Fi drops      | trust                | age check before paint, hollow dot (DR3)
+6    | problem clears                  | closure              | wash fades 400ms, dot turns green
+```
+
+### What already exists
+DESIGN.md (tokens, type, motion), variant B markup/CSS in `docs/design/now-variants.html`,
+the CPU · RAM underline toggle pattern (reused for theme and Log · N). No app code yet.
+
+### NOT in scope (design)
+- Mockup regeneration: the gstack designer needs an OpenAI key; variant B HTML stays the reference.
+- Sensors and PWA: still deferred (TODOS.md, D2/D6).
+- No new TODOs from this review: every finding was decided in-scope.
+
+### Implementation Tasks (design review)
+- [ ] **T8 (P1, human: ~3h / CC: ~15min)**: frontend: container-query gauges (DR1, DR6, DR11), per-core grouping (DR7), 2px segment gaps (DR10)
+  - Files: frontend static CSS/JS (paths set by eng review)
+  - Verify: browser at 375, 700, 960, 1440px; 4, 16, 64 fake cores; no horizontal scroll
+- [ ] **T9 (P1, human: ~3h / CC: ~15min)**: frontend: state table (DR3), severity + "N more" (DR4), tab titles (DR17), wake check
+  - Verify: pytest for status/title composition; browser with a fake server for each state
+- [ ] **T10 (P1, human: ~2h / CC: ~10min)**: frontend: Log · N inline list (DR2), Trends rows (DR14)
+  - Verify: browser; Trends populated on open; log entries ongoing vs closed
+- [ ] **T11 (P1, human: ~2h / CC: ~10min)**: a11y + theme: DR9, DR12, DR13, DR15, DR16
+  - Verify: keyboard-only pass; contrast check on washes; 44px hit areas measured; theme persists, no flash
+
+Task JSONL not persisted: jq is not installed.
+
+## Design Review Completion Summary
+
+```
+  +====================================================================+
+  |         DESIGN PLAN REVIEW — COMPLETION SUMMARY                    |
+  +====================================================================+
+  | System Audit         | DESIGN.md present (stale vs B, fixed); full UI |
+  | Step 0               | 6/10; all 7 passes; designer unavailable     |
+  | Pass 1  (Info Arch)  | 5/10 → 9/10 after fixes                      |
+  | Pass 2  (States)     | 3/10 → 9/10 after fixes                      |
+  | Pass 3  (Journey)    | 6/10 → 8/10 after fixes (5B: wrap accepted)  |
+  | Pass 4  (AI Slop)    | 7/10 → 9/10 after fixes                      |
+  | Pass 5  (Design Sys) | 5/10 → 9/10 after fixes                      |
+  | Pass 6  (Responsive) | 4/10 → 9/10 after fixes                      |
+  | Pass 7  (Decisions)  | 4 resolved, 0 deferred                       |
+  +--------------------------------------------------------------------+
+  | NOT in scope         | written (3 items)                            |
+  | What already exists  | written                                      |
+  | TODOS.md updates     | 0 items proposed                             |
+  | Approved Mockups     | 0 generated (variant B HTML is reference)    |
+  | Decisions made       | 17 added to plan                             |
+  | Decisions deferred   | 0                                            |
+  | Overall design score | 3/10 → 8/10                                  |
+  +====================================================================+
+```
+
+Outside voice: Claude subagent completed (Codex not installed): 3 critical, 7 high, 6 medium;
+all folded into DR1-DR17. Litmus: brand YES, one anchor NO→kept 72px by choice (DR6), scannable
+YES, one job per section NO→fixed (DR2), cards NO, motion YES, premium without shadows YES.
+Hard rejections: none.
+
+Unresolved Decisions: none.
+
+## Eng Review (2026-11-03, /plan-eng-review)
+
+Target: docs/designs/stavsboard-v1.md (this file), with D1-D14 and DR1-DR17 as approved
+baselines. Report file: this file.
+
+### Scope record
+feature answers: none proposed (scope already reduced in CEO review); structure: B "Smaller
+arrangement" (D1, user answer 2026-11-03); accepted scope: all v1 scope as locked, in 6 Python
+modules `cli.py`, `app.py`, `collect.py`, `docker_poll.py`, `store.py`, `logic.py` under
+`src/stavsboard/`, plus `static/index.html`, `static/app.css`, `static/app.js`, `static/fonts/`;
+pending remedies: R1-R10. Scope Challenge result: scope accepted as-is.
+Setup answer: skill routing rules added to CLAUDE.md (user: "Add routing rules").
+
+### Premise checks (bounded probes, 2026-11-03)
+- docker `one_shot`: needs Engine API 1.41+ (Docker Engine 20.10) and `stream=False`; added to
+  docker-py in PR #3089 (Feb 2023). Evidence: web search (docker/docker-py#3089). Verdict: true,
+  needs a recent SDK pin.
+- FastAPI `TrustedHostMiddleware`: exact or `*.domain` string matching only; cannot express
+  "any IP literal" (D13). Evidence: fastapi.tiangolo.com/advanced/middleware. Verdict: true.
+- Per-process CPU >100% on multi-core: psutil documents `Process.cpu_percent()` can exceed 100.
+  Verdict: true (in-distribution knowledge, unverified=1).
+
+## Decision ledger
+
+### R1: Warning thresholds, sustain windows, clear rule
+Finding: 1, P1, confidence 9/10, docs/designs/stavsboard-v1.md:234 ("exact thresholds, sustain
+windows and the 'heavy swap' definition"), reviewer: eng review (Claude)
+Plan baseline: Premise 6 example values only ("CPU > 90% sustained 10s, RAM > 90%, heavy swap");
+DR4 fixes amber = strain, red = critical tier.
+Runtime evidence: none (no code yet).
+Comparison grid:
+| Value | Current | A (recommended) | B |
+|---|---|---|---|
+| CPU amber | ex. >90% 10s | >= 90% for 10s | >= 95% for 30s |
+| CPU red | none | none (CPU never red) | none |
+| RAM amber / red | ex. >90% | >= 90% for 10s / >= 97% for 10s | >= 93% 30s / >= 98% 30s |
+| Swap amber / red | "heavy swap" | used >= 50% for 30s / >= 80% for 30s | >= 70% / >= 90%, 60s |
+| Clear rule | none | below (amber - 10 points) for 10s | same |
+| Per-core hot bar | DR7 | core >= 90%: bar turns warning color, no log entry | same |
+Question D2:
+D2 — Warning thresholds and sustain windows
+Project/branch/task: main, Stavsboard v1 logic.py thresholds (blocking input from CEO review).
+ELI10: These numbers decide when the calm screen turns amber or red. Too tight and it nags you
+about normal spikes; too loose and it stays green while the machine struggles. A clear rule
+(drop 10 points below the line for 10s) stops it flickering on and off at the edge.
+Stakes if we pick wrong: false alarms train you to ignore it, or real trouble stays green.
+Recommendation: A because 90%/10s matches the office-hours example and the 10-point clear
+band prevents flapping.
+Note: options differ in kind, not coverage — no completeness score.
+Pros / cons:
+A) Standard (recommended): CPU amber >=90% 10s; RAM amber >=90% 10s, red >=97% 10s; swap amber >=50% 30s, red >=80% 30s; clears 10 points below for 10s
+  ✅ Catches a stuck build or memory leak within about 10 seconds
+  ❌ A long compile at 95% CPU will show amber for its whole run
+B) Lenient: CPU >=95% 30s; RAM >=93% / >=98% 30s; swap >=70% / >=90% 60s; same clear rule
+  ✅ Fewer alarms during normal heavy work like gaming or builds
+  ❌ Slower to warn; a leak may sit at 92% RAM with no color
+Net: earlier warnings vs fewer warnings during intentional heavy use.
+Header: Thresholds
+Options:
+A) Standard thresholds (recommended)
+CPU amber >=90% 10s; RAM amber >=90% / red >=97% 10s; swap amber >=50% / red >=80% 30s; clear 10 points below for 10s. Constants in logic.py, table-driven tests.
+B) Lenient thresholds
+CPU >=95% 30s; RAM >=93% / >=98% 30s; swap >=70% / >=90% 60s; same clear rule and tests.
+
+State: approved
+Actual answer: A) Standard thresholds (user answer to D2, 2026-11-03)
+Accepted scope: logic.py constants CPU amber >=90% 10s (never red); RAM amber >=90% / red >=97% 10s; swap amber >=50% / red >=80% 30s; clear when 10 points below the amber line for 10s; per-core bar >=90% turns warning color with no log entry; table-driven pytest
+History: none
+
+### R2: Warning log retention
+Finding: 2, P2, confidence 9/10, docs/designs/stavsboard-v1.md:235 ("warning log retention"), reviewer: eng review
+Plan baseline: in memory, resets on restart (Premise 7); retention unset.
+Runtime evidence: none.
+Comparison grid:
+| Value | Current | A (recommended) | B |
+|---|---|---|---|
+| Retention | unset | last 100 entries | last 24 hours |
+| Memory | n/a | bounded (deque maxlen=100) | unbounded if flapping |
+| Restart | resets | resets | resets |
+Question D3:
+D3 — How much warning history to keep
+Project/branch/task: main, logic.py warning log (blocking input).
+ELI10: The log answers "what happened while I was away". It lives in memory only. A count cap
+keeps memory fixed even if something flaps all night; a time cap keeps only recent days.
+Stakes if we pick wrong: either the log grows without bound or useful history is dropped.
+Recommendation: A because a 100-entry cap bounds memory and covers several days of normal use.
+Note: options differ in kind, not coverage — no completeness score.
+Pros / cons:
+A) Last 100 entries (recommended)
+  ✅ Fixed memory no matter how often a threshold is crossed
+  ❌ A very noisy night could push out entries from earlier in the day
+B) Last 24 hours
+  ✅ "Since yesterday" is easy to reason about for a check from afar
+  ❌ No bound on entry count if a condition flaps for hours
+Net: bounded memory vs a time-based window.
+Header: Log size
+Options:
+A) Last 100 entries (recommended)
+In-memory deque(maxlen=100); oldest dropped first; resets on restart; header still "Watching since".
+B) Last 24 hours
+Entries older than 24h dropped each tick; no count cap; resets on restart.
+
+State: approved
+Actual answer: A) Last 100 entries (user answer to D3, 2026-11-03)
+Accepted scope: in-memory deque(maxlen=100), oldest dropped first, resets on restart, "Watching since" header; pytest for cap and ongoing/closed entries
+History: none
+
+### R3: Container-exited trigger
+Finding: 3, P1, confidence 9/10, docs/designs/stavsboard-v1.md:356 (R3-6 "define the trigger"), reviewer: spec review + eng review
+Plan baseline: DR4 red = "container exited non-zero"; trigger undefined.
+Runtime evidence: none.
+Comparison grid:
+| Value | Current | A (recommended) | B |
+|---|---|---|---|
+| Seen running -> exited, code != 0 | red (DR4) | red warning + log entry | same |
+| Exit code 0 | undefined | no warning; row shows muted "exited 0" | same |
+| Restart loop | undefined | >= 3 restarts in 5 min = red | same |
+| Already exited at startup | undefined | red row "exit N", no warning, no log | red warning + log |
+| Clears when | undefined | container running again or removed | same |
+Question D4:
+D4 — When does a container count as "exited"?
+Project/branch/task: main, docker_poll.py + logic.py container warnings (blocking input).
+ELI10: A container that crashes should turn the screen red. But a one-shot job that finishes
+cleanly (exit 0) or one that was already dead before Stavsboard started is not news. Option A
+only alarms on crashes it actually saw happen, plus restart loops.
+Stakes if we pick wrong: either old dead containers keep the screen red forever, or a crash
+on startup goes unnoticed.
+Recommendation: A because it alarms on events, not on old state, so the screen can go calm.
+Note: options differ in kind, not coverage — no completeness score.
+Pros / cons:
+A) Seen transitions only (recommended)
+  ✅ Stale dead containers never block "All calm."; crashes you missed still show in the log
+  ❌ A container that was already crashed at startup shows only a red row, no warning
+B) Also warn on startup-exited
+  ✅ Nothing crashed is ever quiet, even from before the server started
+  ❌ A long-dead test container keeps the whole dashboard red until removed
+Net: event-based calm vs never-quiet about any dead container.
+Header: Exit rule
+Options:
+A) Seen transitions only (recommended)
+Red warning + log when a container seen running exits with code != 0, or restarts >=3 times in 5 min. Exit 0 = muted row. Exited before startup = red row only. Clears when running again or removed.
+B) Also warn on startup-exited
+Same as A, plus containers already exited non-zero at startup raise a red warning and log entry.
+
+State: approved
+Actual answer: A) Seen transitions only (user answer to D4, 2026-11-03)
+Accepted scope: red warning + log entry when a container seen running exits with code != 0, or restarts >= 3 times in 5 min; exit 0 = muted "exited 0" row; exited before startup = red row "exit N" only; clears when running again or removed; pytest with fake container sequences
+History: none
+
+### R4: Snapshot payload contract and time handling
+Finding: 4, P1, confidence 9/10, docs/designs/stavsboard-v1.md:236 ("snapshot payload shape and cadence"), :400 (R3-10 timezones), reviewer: eng review
+Plan baseline: D12 1s polling of `GET /api/snapshot`; D14 Trends rings returned "with the Trends request"; DR17 titles.
+Runtime evidence: none.
+Comparison grid:
+| Value | Current | A (recommended) | B |
+|---|---|---|---|
+| Shape | unset | full snapshot each poll (~4-8 KB) | same |
+| Fields | unset | server_time, collected_age_s, stalled, cpu{total,per_core,count}, mem{total,used,cached or null,available,percent}, swap{total,used,percent}, procs{by_cpu[10],by_ram[10]} of {pid,name,cpu,rss}, containers{state ok/absent/denied, age_s, stale, items}, active[], log{since,entries}, status{level,text,more}, title | same |
+| Trends | "with Trends request" | same endpoint, `?trends=1` adds 60-sample rings | separate `GET /api/trends` |
+| Times | unset | epoch seconds (float); client renders local HH:MM via Intl | same |
+| Ongoing form | R3-10 | "ongoing since HH:MM" | same |
+| Text composition | unset | server composes status + title (logic.py, tested); client overrides only for Connecting / Disconnected | same |
+Question D5:
+D5 — What one poll returns
+Project/branch/task: main, app.py /api/snapshot contract (blocking input).
+ELI10: The browser asks the server for everything once a second. Sending the whole picture
+each time (a few KB) is simplest: no "what changed" bookkeeping, and a reconnecting tab is
+instantly correct. Times go out as plain epoch numbers and each viewer shows its own local
+time. The server writes the status sentence and tab title so pytest can check them.
+Stakes if we pick wrong: a diff-based protocol or client-side text means bugs only a browser
+test can catch.
+Recommendation: A because one endpoint and one loop is the least code, and Trends data only
+travels while that tab is open.
+Note: options differ in kind, not coverage — no completeness score.
+Pros / cons:
+A) One endpoint, ?trends=1 (recommended)
+  ✅ One fetch loop in app.js; Trends adds data to the same response only when open
+  ❌ Query flag changes the response shape, so tests cover both forms
+B) Separate /api/trends endpoint
+  ✅ Each endpoint has one fixed shape, which is easy to read in the code
+  ❌ Two fetch loops while Trends is open, and they can disagree by a tick
+Net: one loop with an optional section vs two fixed-shape endpoints.
+Header: Payload
+Options:
+A) One endpoint, ?trends=1 (recommended)
+Full snapshot every poll with the fields listed; ?trends=1 adds 60-sample rings; epoch times rendered locally; server-composed status and title.
+B) Separate /api/trends
+Same snapshot fields and time rules; rings served by GET /api/trends polled while Trends is open.
+
+State: approved
+Actual answer: A) One endpoint, ?trends=1 (user answer to D5, 2026-11-03)
+Accepted scope: GET /api/snapshot returns the full snapshot (fields in the grid) every 1s poll; ?trends=1 adds 60-sample rings; epoch-second times rendered in viewer local time ("ongoing since HH:MM"); server composes status level/text/more and title in logic.py, client overrides only Connecting/Disconnected; TestClient schema tests for both forms
+History: none
+
+### R5: Container poller cadence, timeouts, parallelism
+Finding: 5, P1, confidence 8/10, docs/designs/stavsboard-v1.md:237, :283-285 (S7 "must not run them serially"), :316 (R3-2), :326 (R3-3), reviewer: CEO review + eng review
+Plan baseline: own thread, ~3-5s, `one_shot=True`, CPU delta across our polls; stale at 3x cadence; server-clock age.
+Runtime evidence: one_shot confirmed (premise check). Stats latency unmeasured (no Docker yet) [re-measure after install].
+Comparison grid:
+| Value | Current | A (recommended) | B |
+|---|---|---|---|
+| Cadence | 3-5s | 3s, measured start to start | 5s |
+| Client timeout | unset | 3s per Docker call | 5s |
+| Parallelism | "not serial" | ThreadPoolExecutor, max 8 workers | same, max 4 |
+| Stale after | 3x cadence | 9s | 15s |
+| updated_at | R3-2 | advances only when the list call succeeds; a timed-out stats call shows that row's CPU as "—" | same |
+| Startup | R3-3 | section hidden until first success; not non-calm | same |
+| CPU % | delta | (d container_total / d system_total) x online_cpus, then / cpu_count = % of machine | same |
+Question D6:
+D6 — How often to ask Docker, and how long to wait
+Project/branch/task: main, docker_poll.py (blocking input).
+ELI10: Docker answers slowly (each container's stats can take a second or two), so it gets
+its own thread that never blocks CPU/RAM. Polling every 3s with a few containers asked in
+parallel keeps container numbers fresh; if Docker stops answering for 9s the section says
+"data 9s old" instead of showing old numbers as current.
+Stakes if we pick wrong: slow container numbers, or a hung Docker shown as healthy.
+Recommendation: A because 3s/9s keeps containers as fresh as everything else on screen.
+Note: options differ in kind, not coverage — no completeness score.
+Pros / cons:
+A) 3s cadence, 3s timeout, 8 workers, stale at 9s (recommended)
+  ✅ Container CPU is at most about 3-6 seconds old, close to the 1s host data
+  ❌ More Docker API calls; on Windows each goes through the WSL2 named pipe
+B) 5s cadence, 5s timeout, 4 workers, stale at 15s
+  ✅ Lighter on the Docker daemon on a machine running many containers
+  ❌ Container data can lag the rest of the screen by 10 seconds
+Net: freshness vs Docker load.
+Header: Poller
+Options:
+A) 3s / 3s / 8 workers (recommended)
+Poll every 3s start-to-start, 3s per-call timeout, parallel stats (max 8), stale at 9s; list-success rule; hidden until first poll.
+B) 5s / 5s / 4 workers
+Poll every 5s, 5s timeout, max 4 parallel stats, stale at 15s; same list-success and startup rules.
+
+State: approved
+Actual answer: free text to D6: "add a settings menu where you can choose pull rate, it has a lower hardware impact mode and an accurate mode" (2026-11-03). Neither option chosen; it adds a new feature (R11), so cadence values wait for R11.
+Accepted scope: cadence/timeout/workers/stale values come from the R11 answer (D7 A): Accurate 3s / 3s / 8 / 9s, Low impact 10s / 5s / 2 / 30s. Unchanged under every R11 outcome: list-success rule (R3-2), hidden until first poll (R3-3), CPU delta formula, server-clock age.
+History: D6 asked with options A (3s/3s/8, stale 9s) and B (5s/5s/4, stale 15s); answered with the settings request above.
+
+### R11: Refresh-mode setting (new feature from the D6 answer)
+Finding: 11, P1 (scope addition), confidence 9/10, user answer to D6; constraints at docs/designs/stavsboard-v1.md:31 (read-only), :59 ("no config file in v1"), :217 (D13, no auth on --lan), reviewer: eng review
+Plan baseline: fixed cadences, no settings UI, no write endpoint, no config file.
+Runtime evidence: none.
+Comparison grid:
+| Value | Current | A (recommended) | B | C |
+|---|---|---|---|---|
+| Modes | none | Accurate (default): host 1s, Docker 3s / 3s timeout / 8 workers, stale 9s. Low impact: host 2s, Docker 10s / 5s timeout / 2 workers, stale 30s, top processes every 2s | same two modes | same two modes |
+| Where set | n/a | "Settings" text button in the app bar opens an inline panel: Theme (DR13 moves here) + Refresh "Accurate · Low impact" | same panel | CLI flag `--mode low` only, no UI |
+| Who can change | n/a | only requests from the machine itself (loopback); LAN viewers see it read-only | any viewer, including LAN | whoever starts the server |
+| Write endpoint | none | `POST /api/settings` (loopback only, JSON, Host check applies) | same, no loopback limit | none |
+| Persistence | none | in memory; `--mode` CLI flag sets the startup default; no config file | same | flag only |
+| Client poll | 1s | follows the server mode (1s or 2s) | same | same |
+| Trends | 60 samples | 60 samples at the mode's cadence (60s or 120s); caption follows | same | same |
+| Thresholds (R1) | seconds | unchanged, defined in seconds | same | same |
+Question D7:
+D7 — Refresh-mode setting: who can change it and where
+Project/branch/task: main, new Settings panel + refresh modes (your D6 answer).
+ELI10: You asked for a setting that trades accuracy for lower load. The load comes from the
+server reading CPU, processes and Docker, so the mode has to change the server, not just
+your browser. Because --lan has no login, anyone on your Wi-Fi could flip it unless only the
+machine itself is allowed to change it. Low impact still refreshes every 2s, which meets your
+"at least every 2s" rule.
+Stakes if we pick wrong: a LAN guest can change your server's behavior, or the setting is
+hidden in a command-line flag you never touch.
+Recommendation: A because it gives you the menu you asked for while keeping LAN viewers read-only.
+Note: options differ in kind, not coverage — no completeness score.
+Pros / cons:
+A) Settings panel, change from this PC only (recommended)
+  ✅ The menu you asked for; phone and LAN viewers can't change server behavior
+  ❌ To switch modes from your phone you would need to be on the PC (human: ~4h / CC: ~20 min)
+B) Settings panel, any viewer can change it
+  ✅ Switch modes from your phone or laptop as well
+  ❌ Anyone on your network can change it while --lan is on; adds an unauthenticated write
+C) CLI flag only, no menu
+  ✅ No write endpoint and no new UI; smallest change (human: ~1h / CC: ~5 min)
+  ❌ Not the menu you asked for; you must restart to switch
+Net: the menu you asked for with a LAN-safe write vs a fully open write vs no menu.
+Header: Settings
+Options:
+A) Panel, this PC only (recommended)
+Settings panel (Theme + Accurate/Low impact). POST /api/settings accepted only from loopback; LAN read-only. In memory, --mode sets startup default. Accurate 1s/3s; Low 2s/10s.
+B) Panel, any viewer
+Same panel and modes; POST /api/settings accepted from any allowed Host, including LAN viewers.
+C) CLI flag only
+--mode accurate|low at startup; no panel, no write endpoint; same two modes.
+
+State: approved
+Actual answer: A) Panel, this PC only (user answer to D7, 2026-11-03)
+Accepted scope: two modes. Accurate (default): host 1s, Docker 3s / 3s timeout / 8 workers, stale 9s. Low impact: host 2s, Docker 10s / 5s timeout / 2 workers, stale 30s, top processes every 2s. "Settings" text button in the app bar opens an inline panel holding Theme (DR13) and Refresh "Accurate · Low impact". POST /api/settings accepted only from loopback clients (403 otherwise; Host check still applies); LAN viewers see the panel read-only with "Change on this PC". In memory; `--mode accurate|low` sets the startup default; no config file. Client poll interval and Trends spacing follow the mode; thresholds stay in seconds. Tests: TestClient loopback vs non-loopback POST, mode switch changes collector cadence (fake clock), snapshot reports `mode`
+History: none
+
+### R6: Host header check implementation
+Finding: 6, P1, confidence 9/10, docs/designs/stavsboard-v1.md:217 (D13), reviewer: eng review (premise probe)
+Plan baseline: D13 rules (IP literals + localhost + hostname + hostname.local under --lan; loopback only otherwise).
+Runtime evidence: TrustedHostMiddleware cannot match "any IP literal".
+Comparison grid:
+| Value | Current | A (recommended) | B |
+|---|---|---|---|
+| Rule | D13 | unchanged | approximated |
+| Mechanism | unset | pure `host_allowed(host, lan, hostname)` in app.py using `ipaddress`, port and IPv6 brackets stripped, case-insensitive; small middleware returns 400 | TrustedHostMiddleware with current interface IPs from psutil at startup |
+| DHCP change | n/a | still allowed (any IP literal) | rejected until restart |
+Question D8:
+D8 — How to enforce the Host allowlist
+Project/branch/task: main, app.py security check (D13).
+ELI10: The Host check stops a malicious web page from tricking your browser into reading
+the dashboard (DNS rebinding). FastAPI's built-in check only compares fixed names, so it
+cannot say "any IP address is fine" as D13 requires. A 20-line function of our own can, and
+it is easy to unit-test.
+Stakes if we pick wrong: either the security rule is weaker than approved, or phone access
+breaks when the router hands out a new IP.
+Recommendation: A because it implements D13 exactly and is fully table-tested.
+Note: options differ in kind, not coverage — no completeness score.
+Pros / cons:
+A) Own pure function (recommended)
+  ✅ Exactly matches D13, including IPv6 and changed DHCP addresses
+  ❌ About 20 lines of security code we own instead of a library's
+B) TrustedHostMiddleware + interface IPs
+  ✅ Uses a well-known built-in, no custom parsing code
+  ❌ A new DHCP address or second interface is rejected until restart
+Net: exact approved rule with our own code vs a built-in that approximates it.
+Header: Host check
+Options:
+A) Own pure function (recommended)
+host_allowed() with ipaddress parsing, port/bracket stripping, case-insensitive names; 400 on reject; table-driven tests with and without --lan.
+B) TrustedHostMiddleware
+Built-in middleware fed localhost names plus interface IPs read at startup; tests for allowed/denied.
+
+State: approved
+Actual answer: A) Own pure function (user answer to D8, 2026-11-03)
+Accepted scope: pure host_allowed(host, lan, hostname) in app.py (ipaddress parsing, port and IPv6 bracket stripping, case-insensitive names) behind a small middleware returning 400; table-driven pytest with and without --lan
+History: none
+
+### R7: Dependencies, tooling and .gitignore
+Finding: 7, P1, confidence 9/10, user constraint "Stop and ask before adding any dependency not named in the locked eng plan", reviewer: eng review
+Plan baseline: FastAPI, uvicorn, psutil, docker SDK (pywin32 transitive); Python 3.11+ via uv (D8); self-hosted woff2 (DESIGN.md).
+Runtime evidence: Python 3.9.13, no uv, no Docker on the dev PC (CEO probe).
+Comparison grid:
+| Value | Current | A (recommended) | B |
+|---|---|---|---|
+| Runtime deps | 4 named | fastapi>=0.115, uvicorn>=0.30 (plain), psutil>=6.0, docker>=7.1 | same but uvicorn[standard] |
+| Dev deps | unset | pytest>=8, httpx>=0.27 (TestClient) | same |
+| Build | unset | hatchling, `[project.scripts] stavsboard = "stavsboard.cli:main"`, src layout, requires-python >=3.11 | same |
+| Installs | uv approved (T1) | uv user-level from astral.sh; uv-managed Python 3.12 | same |
+| Downloads | unset | Instrument Serif 400 + Schibsted Grotesk 400/500/600 woff2 + OFL.txt from Google Fonts into static/fonts | same |
+| .gitignore | required | __pycache__/, *.py[cod], .venv/, dist/, build/, *.egg-info/, .pytest_cache/, .coverage, htmlcov/, .env, .env.*, .gstack/, .DS_Store, Thumbs.db, uv.lock kept tracked | same |
+Question D9:
+D9 — Exact dependency list
+Project/branch/task: main, pyproject.toml (your rule: no dependency outside the locked eng plan).
+ELI10: This is the full list of things Stavsboard installs. Four runtime libraries you already
+approved, plus two test-only tools (pytest, and httpx which FastAPI's test client needs). Plain
+uvicorn skips optional C speedups we don't need at one request a second.
+Stakes if we pick wrong: extra native packages that can fail to install on Windows.
+Recommendation: A because plain uvicorn is pure Python and enough for one poll per second.
+Note: options differ in kind, not coverage — no completeness score.
+Pros / cons:
+A) Plain uvicorn (recommended)
+  ✅ Fewest install steps on Windows; nothing compiles
+  ❌ No uvloop or httptools speedups (irrelevant at 1 request/s)
+B) uvicorn[standard]
+  ✅ The common default in FastAPI tutorials, slightly faster HTTP parsing
+  ❌ Pulls watchfiles, websockets, httptools and more; bigger install for no user gain
+Net: minimal install vs the tutorial default.
+Header: Deps
+Options:
+A) Plain uvicorn (recommended)
+Runtime: fastapi, uvicorn, psutil, docker>=7.1. Dev: pytest, httpx. hatchling build, uv, fonts download, .gitignore as listed.
+B) uvicorn[standard]
+Same list and tooling, with uvicorn[standard] extras instead of plain uvicorn.
+
+State: approved
+Actual answer: A) Plain uvicorn (user answer to D9, 2026-11-03)
+Accepted scope: runtime fastapi>=0.115, uvicorn>=0.30 (plain), psutil>=6.0, docker>=7.1 (pywin32 transitive on Windows); dev pytest>=8, httpx>=0.27; hatchling build, src layout, requires-python >=3.11, console script stavsboard = stavsboard.cli:main; uv installed user-level from astral.sh with uv-managed Python 3.12; Instrument Serif + Schibsted Grotesk woff2 and OFL.txt downloaded from Google Fonts into static/fonts; .gitignore as in the grid, uv.lock tracked. No other dependency without asking
+History: none
+
+### R8: Per-process CPU scale and smoothing window
+Finding: 8, P2, confidence 8/10, docs/designs/stavsboard-v1.md:228 ("eng review locks this"), :213 (D10), reviewer: CEO outside voice + eng review
+Plan baseline: D10 ~3s moving average ranking; normalize to % of machine.
+Runtime evidence: psutil cpu_percent per process can exceed 100 (unverified=1).
+Comparison grid:
+| Value | Current | A (recommended) | B |
+|---|---|---|---|
+| Display scale | "normalize" | cpu_percent / logical cpu count = % of whole machine | raw psutil (one core = 100%) |
+| Ranking | ~3s avg | mean of last 3 samples | same |
+| Shown value | live | live (1s) value | same |
+Question D10:
+D10 — What "CPU %" means for a process
+Project/branch/task: main, collect.py process table.
+ELI10: Windows Task Manager shows a process using all of a 16-core CPU as 100%. psutil would
+call it 1600%. Dividing by the core count makes the process column match the big CPU number
+and Task Manager, so the numbers add up.
+Stakes if we pick wrong: a row showing "650%" next to a CPU total of "41%" looks broken.
+Recommendation: A because the column then sums to the total and matches Task Manager.
+Note: options differ in kind, not coverage — no completeness score.
+Pros / cons:
+A) % of whole machine (recommended)
+  ✅ Process numbers add up to the CPU total shown above them
+  ❌ A single-threaded process maxing one core on 16 cores shows only 6%
+B) Raw psutil (per core)
+  ✅ Shows "this process is pinning one core" as 100% at a glance
+  ❌ Values above 100% next to a 0-100% total read as a bug
+Net: consistent totals vs per-core visibility.
+Header: Proc CPU
+Options:
+A) % of whole machine (recommended)
+Divide by logical CPU count; rank by mean of last 3 samples; show the live value.
+B) Raw per-core %
+Show psutil's value as-is (can exceed 100); same 3-sample ranking.
+
+State: approved
+Actual answer: A) % of whole machine (user answer to D10, 2026-11-03)
+Accepted scope: process CPU = psutil cpu_percent / logical CPU count; rank by mean of the last 3 samples (D10), show the live value, rows keyed by PID; status blame uses the same scale; pytest with a scripted CPU sequence
+History: none
+
+### R9: Browser-visible state testing harness
+Finding: 9, P2, confidence 8/10, Test review (DR3 state table, DR7 64 cores, DR11 widths need a browser), reviewer: eng review
+Plan baseline: /qa and /design-review in the pipeline; no way to force states.
+Runtime evidence: dev PC has 1 machine state, no Docker yet.
+Comparison grid:
+| Value | Current | A (recommended) | B |
+|---|---|---|---|
+| Harness | none | dev-only `tests/demo_server.py`: same static frontend, scripted snapshots (calm, warning, error, disconnected, stalled, 4/16/64 cores, no Docker, denied, stale) via `?scenario=` | none; test only live states |
+| Ships in CLI | n/a | no (tests/ only) | n/a |
+Question D11:
+D11 — How /qa and /design-review reach the rare states
+Project/branch/task: main, test tooling for the frontend.
+ELI10: Most screens (red alarm, disconnected, 64 cores, no Docker) never appear on your PC
+on demand. A small test-only server can play back fake snapshots so every state from the
+design review can be checked in a real browser. It never ships in the stavsboard command.
+Stakes if we pick wrong: QA only ever sees "All calm." and the alarm screens ship unchecked.
+Recommendation: A because the done criteria need the light/dark and 375/1440 checks for every state.
+Completeness: A=10/10, B=5/10
+Pros / cons:
+A) Dev-only demo server (recommended)
+  ✅ Every DR3 state, 64 cores and every width can be checked in /qa (human: ~2h / CC: ~10 min)
+  ❌ One more test file to keep in step with the payload contract
+B) Live states only
+  ✅ Nothing extra to maintain
+  ❌ Alarm, stale and denied screens are never seen before you hit them for real
+Net: full visual coverage for ~10 minutes of CC work.
+Header: Demo states
+Options:
+A) Dev-only demo server (recommended)
+tests/demo_server.py serves the real frontend with scripted snapshots selected by ?scenario=; reuses the payload schema test.
+B) Live states only
+No harness; /qa checks whatever the machine shows.
+
+State: approved
+Actual answer: A) Dev-only demo server (user answer to D11, 2026-11-03)
+Accepted scope: tests/demo_server.py (not in the stavsboard CLI) serves the real static frontend with scripted snapshots chosen by ?scenario= (calm, warning, error, multi, disconnected, stalled, cores4/16/64, no-docker, denied, stale, low-mode); scenarios validated by the same payload schema test
+History: none
+
+### R10: CI on GitHub
+Finding: 10, P3, confidence 7/10, docs/designs/stavsboard-v1.md:170 ("eng review can revisit CI for tests"), reviewer: eng review
+Plan baseline: no CI in v1.
+Runtime evidence: none.
+Comparison grid:
+| Value | Current | A | B (recommended) |
+|---|---|---|---|
+| CI | none | none in v1; tests run locally, output shown at /ship | add .github/workflows/test.yml (pytest on windows-latest + ubuntu-latest) |
+Question D12:
+D12 — Run tests on GitHub automatically?
+Project/branch/task: main, CI for the GitHub repo.
+ELI10: A workflow file would make GitHub run the tests on Windows and Linux after every push.
+That proves the Linux side without a Linux machine, but it runs on GitHub's side once you
+push, which is a repo-side change you asked to approve per push.
+Stakes if we pick wrong: Linux breakage found late, or an unwanted GitHub-side job.
+Recommendation: B because the done criteria require Linux and you have no Linux box here; CI
+gives that proof for free on push.
+Completeness: A=6/10, B=9/10
+Pros / cons:
+A) No CI in v1
+  ✅ Nothing runs on GitHub; fully local workflow
+  ❌ Linux is only tested if you run it on a Linux machine yourself
+B) Add test workflow (recommended)
+  ✅ pytest on Windows and Ubuntu every push (human: ~1h / CC: ~5 min)
+  ❌ Runs on GitHub Actions after you approve the push; uses free Actions minutes
+Net: local-only vs free Windows+Linux proof on push.
+Header: CI
+Options:
+A) No CI in v1
+Tests run locally only; Linux verified manually if possible.
+B) Add test workflow (recommended)
+.github/workflows/test.yml: uv + pytest on windows-latest and ubuntu-latest, on push and PR.
+
+State: approved
+Actual answer: B) Add test workflow (user answer to D12, 2026-11-03; options were shown B first)
+Accepted scope: .github/workflows/test.yml running uv + pytest on windows-latest and ubuntu-latest on push and pull_request; committed locally only; it first runs after a push you approve
+History: none
+
+### Outside voice (native Claude Plan subagent; Codex not installed)
+Completed within the 5-minute bound: 12 findings (3 High, 6 Medium, 3 Low). Dispositions:
+- **Corrections recorded as necessary work for already-approved contracts (no new behavior choice):**
+  - C1 (OV#2, High): exclude PID 0 "System Idle Process" (Windows) and PID 0 on Linux from the
+    top list and blame; other system processes stay. Protects D10/D5 status blame. pytest row.
+  - C2 (OV#3, High): static files live inside the package (`src/stavsboard/static/`), are located
+    with `importlib.resources.files("stavsboard") / "static"`, and the hatch build includes them.
+    Proof: a test that builds the wheel, installs it into a temp venv and GETs `/` and a font file.
+    Protects the one-command done criterion (D8).
+  - C3 (OV#7, Medium): the poller skips a cycle while the previous one is unfinished; worker and
+    poller threads are daemon threads; shutdown calls `executor.shutdown(wait=False,
+    cancel_futures=True)`, so Ctrl+C exits promptly. Protects D9 and the poller isolation commitment.
+  - C4 (OV#11, Low): the watchdog and sustain windows use `time.monotonic()`; a gap of more than
+    5s between ticks counts as resume from sleep: reset the sustain windows, and do not report
+    "Collector stalled" for that gap. Protects "stale never calm" without a false stall.
+  - C5 (OV#9, Medium): doc consolidation. Superseded statements: Approach B SSE, `/api/stream`,
+    S1/S4 SSE mentions (D12 replaced them with polling); DR13 theme in the app bar (now in the R11
+    Settings panel); the client-side Trends ring (D14). The implementation follows the latest ledger.
+- **Not reopened:** OV#5 (R11 is likely overbuilt). It is your explicit request (D6 free text,
+  D7-A) and there is no measurement contradicting it. Implementation will log the collector's
+  own CPU per mode once, as a check.
+- **Decisions below:** OV#1 (R12), OV#4 (R13), OV#6 (R14), OV#8 (R15), OV#10 (R16), OV#12 (R17).
+
+### R12: Docker call budget for exit codes and restart counts
+Finding: OV#1, High, confidence 8/10, R3/R5 records above (docker-py `containers.list()` defaults to sparse=False = one inspect per container, serial), reviewer: outside voice (Claude Plan)
+Plan baseline: R3 (D4-A) restart loop >= 3 in 5 min; R5 list-success freshness rule.
+Runtime evidence: docker-py behavior per reviewer (in-distribution, unverified until Docker install).
+Comparison grid:
+| Value | Current | A (recommended) | B | C | D |
+|---|---|---|---|---|---|
+| List call | list() default (serial inspect) | `list(all=True, sparse=True)` each poll (one call) | keep default | measure after Docker install, then choose | defer |
+| Exit code / restarts | implied | inspect only containers whose state or id changed since the last poll, plus every container's `RestartCount` at most every 30s; restart loop = RestartCount delta >= 3 in 5 min | from serial inspect | pending | pending |
+| Freshness rule | list success | list success (unchanged) | same | same | same |
+Question D13:
+D13 — Docker calls per poll
+Project/branch/task: main, docker_poll.py (outside-voice finding 1).
+ELI10: Docker's "list containers" call quietly looks up every container one by one, so with 10
+containers each poll makes 10 slow calls in a row. A "sparse" list is one fast call, but it leaves
+out the exit code and restart count we need for the red "exited" warning. Option A asks for those
+details only when a container changes, and checks restart counts every 30 seconds.
+Stakes if we pick wrong: either polls get slow as containers grow, or a crash-looping container never turns red.
+Recommendation: A because it keeps each poll to one fast call and still catches crashes and restart loops.
+Note: options differ in kind, not coverage — no completeness score.
+Pros / cons:
+A) Apply: sparse list + targeted inspect (recommended)
+  ✅ One list call per poll; details fetched only on change or every 30s
+  ❌ A bit more bookkeeping in docker_poll.py, tested with a fake client
+B) Keep: default list()
+  ✅ Simplest code; every field is always present
+  ❌ N serial calls per poll through the WSL2 pipe; slow with many containers
+C) Investigate: measure after the Docker install
+  ✅ Choose with real latency numbers from your machine
+  ❌ Leaves the poller design open until Docker Desktop is installed
+D) Defer this proposed change only
+  ✅ No change to the current spec now
+  ❌ The finding stays unresolved and blocks a clean review
+Net: one fast call plus targeted lookups vs simple but serial.
+Header: Docker calls
+Options:
+A) Apply this change (recommended)
+list(all=True, sparse=True) each poll; inspect containers whose state or id changed, plus RestartCount at most every 30s; restart loop = RestartCount delta >= 3 in 5 min. Fake-client tests.
+B) Keep this row's current value
+Default containers.list() (one inspect per container, serial) every poll.
+C) Investigate before choosing
+Measure list() vs sparse latency after Docker Desktop is installed (bounded to one timing run), then return to this choice. No change now.
+D) Defer this proposed change only
+Leave the Docker call pattern unspecified; finding stays open.
+
+State: approved
+Actual answer: A) Apply this change (user answer to D13, 2026-11-03)
+Accepted scope: list(all=True, sparse=True) once per poll; inspect only containers whose state or id changed since the last poll, plus RestartCount for all at most every 30s; restart loop = RestartCount delta >= 3 within 5 min; list-success freshness rule unchanged; fake-client tests
+History: none
+
+### R13: Settings POST cross-site protection
+Finding: OV#4, Medium, confidence 9/10, R11 record (POST /api/settings loopback only), reviewer: outside voice
+Plan baseline: R11 (D7-A) loopback-only POST; Host check (R6).
+Runtime evidence: browsers send cross-origin "simple" form POSTs without preflight; any page open on the PC is loopback.
+Comparison grid:
+| Value | Current | A (recommended) | B | C | D |
+|---|---|---|---|---|---|
+| Content type | unset | must be `application/json` (else 415) | unchanged | pending | pending |
+| Origin | unset | if present, must match the request Host (else 403) | unchanged | pending | pending |
+| LAN-IP owner | read-only | read-only, panel says "Open on this PC at localhost:PORT to change" | same | same | same |
+| Tests | loopback | TestClient with explicit client=("127.0.0.1", ...), foreign Origin, form content type | loopback only | pending | pending |
+Question D14:
+D14 — Stop other websites from flipping the setting
+Project/branch/task: main, app.py POST /api/settings (outside-voice finding 4).
+ELI10: "Only from this PC" is not enough on its own: any website open in a browser on this PC
+counts as "this PC" and could silently send the change. Requiring JSON makes the browser ask
+permission first (and we never grant it), and checking the Origin header rejects other sites.
+Stakes if we pick wrong: a random web page could switch your server's mode.
+Recommendation: A because two header checks close the hole for about ten lines.
+Note: options differ in kind, not coverage — no completeness score.
+Pros / cons:
+A) Apply: JSON-only + Origin check (recommended)
+  ✅ Blocks cross-site posts; standard CSRF defense for a no-login API
+  ❌ Two more checks to test (human: ~30min / CC: ~5 min)
+B) Keep: loopback check only
+  ✅ Nothing extra
+  ❌ Any web page open on the PC can change the mode
+C) Investigate before choosing
+  ✅ Could look at token-based alternatives
+  ❌ Leaves a known hole open meanwhile
+D) Defer this proposed change only
+  ✅ No change now
+  ❌ Finding stays open
+Net: ten lines vs a known cross-site write.
+Header: CSRF
+Options:
+A) Apply this change (recommended)
+Require Content-Type application/json (415 otherwise); reject a present Origin that doesn't match Host (403); LAN viewers see "Open on this PC at localhost:PORT to change"; TestClient tests with explicit client address.
+B) Keep this row's current value
+Loopback-only check, no content-type or Origin rule.
+C) Investigate before choosing
+Compare with a per-session token approach (one short write-up), then return. No change now.
+D) Defer this proposed change only
+Leave unspecified; finding stays open.
+
+State: approved
+Actual answer: A) Apply this change (user answer to D14, 2026-11-03)
+Accepted scope: POST /api/settings requires Content-Type application/json (415 otherwise) and rejects a present Origin that doesn't match the request Host (403), on top of loopback-only and the Host check; LAN viewers see "Open on this PC at localhost:PORT to change"; TestClient tests with explicit client=("127.0.0.1", port), foreign Origin, form content type, non-loopback client
+History: none
+
+### R14: Container CPU % scale
+Finding: OV#6, Medium, confidence 7/10, R5 record CPU formula, reviewer: outside voice
+Plan baseline: R5: (d container / d system) x online_cpus / host cpu_count.
+Runtime evidence: on Docker Desktop, online_cpus and system_cpu_usage describe the WSL2 VM (unverified until install).
+Comparison grid:
+| Value | Current | A (recommended) | B | C | D |
+|---|---|---|---|---|---|
+| Formula | x online_cpus / host count | (d container / d system) x 100 = % of the Docker engine's CPU capacity | unchanged | measure after install | pending |
+| Equals host % when | VM has all cores | VM has all cores (Docker Desktop default) | same | pending | pending |
+| Label | "CPU" | "CPU" column; Containers heading tooltip "% of Docker's CPUs" | none | pending | pending |
+Question D15:
+D15 — Container CPU % when Docker runs in a VM
+Project/branch/task: main, docker_poll.py CPU math (outside-voice finding 6).
+ELI10: On Windows, Docker runs inside a small Linux VM. Its numbers describe that VM, not your
+PC. Option A reports each container as a share of Docker's own CPUs, which is honest on every
+setup and matches your PC's numbers in the default case where Docker gets all your cores.
+Stakes if we pick wrong: container percentages that don't add up when Docker is limited to fewer cores.
+Recommendation: A because it never mixes the VM's and the PC's core counts.
+Note: options differ in kind, not coverage — no completeness score.
+Pros / cons:
+A) Apply: % of Docker's CPU capacity (recommended)
+  ✅ Correct on Linux, on Docker Desktop and with CPU limits; one simple formula
+  ❌ If you cap Docker at 4 of 16 cores, 100% means "all of Docker's 4"
+B) Keep: R5 formula
+  ✅ Compares directly with host CPU on the default setup
+  ❌ Wrong whenever the VM has fewer cores than the host
+C) Investigate before choosing
+  ✅ Check real numbers after the Docker install
+  ❌ Formula stays open until then
+D) Defer this proposed change only
+  ✅ No change now
+  ❌ Finding stays open
+Net: always-consistent share of Docker vs host-comparable only by default.
+Header: Ctr CPU
+Options:
+A) Apply this change (recommended)
+Container CPU = delta container usage / delta system usage x 100 (% of Docker's CPUs); heading tooltip "% of Docker's CPUs"; fake-stats tests.
+B) Keep this row's current value
+R5 formula: x online_cpus, then divide by host logical CPU count.
+C) Investigate before choosing
+After the Docker install, compare both formulas against `docker stats` once, then return. No change now.
+D) Defer this proposed change only
+Leave the formula as written; finding stays open.
+
+State: approved
+Actual answer: A, conditional (user answer to D15, 2026-11-03): "the dashboard is for a linux machine that runs on the same network. why is docker on the windows machine relevant to the linux machine? if we are still on the same page. choose option A". Condition holds: formula A is exact on native Linux Docker (no VM) and also correct on Docker Desktop.
+Accepted scope: container CPU = delta container usage / delta system usage x 100 (% of Docker's CPUs); Containers heading tooltip "% of Docker's CPUs"; fake-stats tests. New evidence: the monitored machine is a Linux server viewed over the LAN (opens R18-R20)
+History: none
+
+### Changed assumption (user, answer to D15, 2026-11-03)
+The machine being monitored is a **Linux server on the home network**; the Windows PC (and phone)
+are viewers. Stavsboard still has to start with one command on Windows and Linux (done criteria),
+so Windows support stays, but the Linux server is the primary target. On it, Stavsboard runs
+with `--lan`. This reopens R11 (R18), the D2 sensors deferral (R19) and where the live Docker
+check happens (R20).
+
+### R18: Who can change the refresh mode when the server is remote (reopens R11)
+Finding: changed assumption above, High, confidence 9/10, R11 accepted scope ("POST /api/settings accepted only from loopback clients"), reviewer: eng review
+Plan baseline: R11 (D7-A) loopback-only changes + R13 (D14-A) JSON + Origin checks.
+Runtime evidence: none. With the server headless on Linux, every viewer is non-loopback, so under R11 nobody could ever change the mode from the menu.
+Comparison grid:
+| Value | Current | A (recommended) | B | C |
+|---|---|---|---|---|
+| Who may POST | loopback only | any client that passes the Host check (R6), with R13 JSON + Origin checks | loopback only (use `--mode` flag) | loopback always; LAN clients only when started with `--allow-settings` |
+| Worst case | n/a | someone on your Wi-Fi switches refresh speed (no data or system change) | none | same as A, only when opted in |
+| Menu on LAN viewers | read-only | editable | read-only + "set with --mode" | editable only with the flag |
+Question D16:
+D16 — Refresh-mode menu when Stavsboard runs on the Linux server
+Project/branch/task: main, R11 Settings panel, reopened by your Linux-server clarification.
+ELI10: D7 made the mode changeable "from this PC only". But if Stavsboard runs on a Linux box
+you only ever view from your Windows PC or phone, nobody counts as "this PC", so the menu would
+be permanently locked. Letting any allowed viewer change it means someone on your Wi-Fi could
+switch the refresh speed; that is the worst they could do. Cross-site protection (D14) stays.
+Stakes if we pick wrong: a menu you can never use, or a refresh switch any Wi-Fi guest can flip.
+Recommendation: A because the menu you asked for has to work from your PC, and the only thing exposed is refresh speed.
+Note: options differ in kind, not coverage — no completeness score.
+Pros / cons:
+A) Any allowed viewer can change it (recommended)
+  ✅ The menu works from your Windows PC and phone; D14 still blocks other websites
+  ❌ Anyone on your network can switch between Accurate and Low impact
+B) Keep loopback only
+  ✅ No LAN write at all
+  ❌ On a remote Linux server the menu is always read-only; you'd restart with --mode
+C) Opt-in flag --allow-settings
+  ✅ LAN changes only when you start it that way
+  ❌ One more flag to remember; without it the menu is locked again
+Net: a working menu with a harmless LAN write vs locking it.
+Header: Who changes
+Options:
+A) Any allowed viewer (recommended)
+POST /api/settings accepted from any client passing the Host check, with JSON-only + Origin checks (D14); menu editable on all viewers.
+B) Keep loopback only
+As D7: changes only from the server machine; remote viewers read-only, `--mode` flag at startup.
+C) Opt-in --allow-settings
+Loopback always allowed; LAN clients allowed only when started with --allow-settings; JSON + Origin checks either way.
+
+State: approved
+Actual answer: A) Any allowed viewer (user answer to D16, 2026-11-03)
+Accepted scope: supersedes R11's loopback-only rule: POST /api/settings accepted from any client passing the Host check (R6), still requiring JSON content type and a matching Origin when present (R13); menu editable on every viewer; README notes anyone on the LAN can switch refresh mode while --lan is on; the "Open on this PC" read-only text from R13 is dropped
+History: R11 (D7-A) loopback-only, approved when the viewing PC was assumed to be the monitored host.
+
+### R19: Sensors card now that the main target is Linux (reopens D2)
+Finding: changed assumption above, Medium, confidence 8/10, docs/designs/stavsboard-v1.md:205 (D2 "Deferred"), TODOS.md "Sensors card" ("blank on the main Windows dev machine"), reviewer: eng review
+Plan baseline: D2 deferred sensors because psutil has no Windows support and Windows was the main machine.
+Runtime evidence: psutil.sensors_temperatures()/sensors_fans() work on Linux (in-distribution, unverified on your server).
+Comparison grid:
+| Value | Current | A (recommended) | B |
+|---|---|---|---|
+| Sensors | deferred (TODOS.md) | keep deferred to v1.1; reason updated: "Linux works; ship v1 first" | bring into v1: a "Temperature" line under CPU (hottest CPU sensor, °C) + temp warning amber >= 85°C / red >= 95°C for 10s; hidden where unsupported (Windows) |
+| v1 scope | locked | unchanged | + about 1 component, thresholds, tests |
+Question D17:
+D17 — Bring CPU temperature back now that the server is Linux?
+Project/branch/task: main, CEO decision D2 (sensors deferred), reopened by your clarification.
+ELI10: We cut temperatures because Windows can't read them without admin rights. On your Linux
+server they work. Adding a small "CPU 54°C" line under the CPU gauge would answer "why is the
+fan loud?", but it is new scope after the CEO review locked v1.
+Stakes if we pick wrong: v1 grows past its locked scope, or misses the one metric Linux can easily give you.
+Recommendation: A because your rule is to keep v1 to the locked scope; it's a small, ready v1.1 item.
+Completeness: A=7/10, B=9/10
+Pros / cons:
+A) Keep deferred to v1.1 (recommended)
+  ✅ v1 stays exactly as locked; ships sooner
+  ❌ No temperature on your Linux server in v1
+B) Add a CPU temperature line to v1
+  ✅ "CPU 54°C" under the dial plus heat warnings (human: ~3h / CC: ~15 min)
+  ❌ Adds scope, a design element and thresholds the design review didn't cover
+Net: locked scope vs one easy Linux metric.
+Header: Sensors
+Options:
+A) Keep deferred (recommended)
+Sensors stay in TODOS.md (reason updated for the Linux server); v1 scope unchanged.
+B) Add CPU temperature
+Hottest CPU sensor in °C under the CPU gauge, amber >= 85°C / red >= 95°C for 10s, hidden where unsupported; pytest + demo scenario.
+
+State: approved
+Actual answer: B) Add CPU temperature (user answer to D17, 2026-11-03)
+Accepted scope: supersedes D2 for CPU temperature only (fans stay deferred in TODOS.md). Hottest CPU sensor from psutil.sensors_temperatures() (prefer coretemp / k10temp / cpu_thermal labels), shown in the CPU sub-line ("16 cores · 54°C") so the DR1 375px budget is unchanged; warning amber >= 85°C / red >= 95°C sustained 10s, red steps down per R16, clear 10°C below amber for 10s; blame-free sentence "CPU is hot: 91°C"; Trends row added; hidden where unsupported (Windows); payload `cpu.temp_c` (null when unsupported); pytest with fake sensor dicts + demo scenario "hot"
+History: D2 (CEO review) deferred sensors.
+
+### R20: Where the live Docker check runs
+Finding: changed assumption above, Medium, confidence 8/10, docs/designs/stavsboard-v1.md:204 (D1 approval to install Docker), :261-263 (Docker Desktop needs admin/UAC and WSL2), reviewer: eng review
+Plan baseline: build against a fake docker client, then live check after installing Docker Desktop on this Windows PC (admin, ask first).
+Runtime evidence: Docker not installed on this PC; your Linux server's Docker state unknown.
+Comparison grid:
+| Value | Current | A (recommended) | B |
+|---|---|---|---|
+| Live container check | Docker Desktop on this PC (admin + WSL2) | on your Linux server: you run the one command there and I give you the exact checks | install Docker Desktop here (admin prompt, asked right before) |
+| Windows container path | live-tested | fake-client tested only (named pipe not live-tested) | live-tested |
+Question D18:
+D18 — Where to test the container section for real
+Project/branch/task: main, T5 live Docker verification.
+ELI10: The plan was to install Docker Desktop on this Windows PC (needs admin and WSL2) just to
+test the container list. Since your containers live on the Linux server, testing there is more
+realistic and needs no admin install here. Docker on Windows would then only be tested with a
+fake client.
+Stakes if we pick wrong: an admin install you don't need, or no real-Docker check at all.
+Recommendation: A because the real target is the Linux server and it avoids an elevated install here.
+Note: options differ in kind, not coverage — no completeness score.
+Pros / cons:
+A) Test on the Linux server (recommended)
+  ✅ Real containers, real Linux; no admin install on this PC
+  ❌ You run the command on the server; Windows Docker stays fake-tested
+B) Install Docker Desktop here
+  ✅ I can run the live check myself on this PC
+  ❌ Admin/UAC install plus WSL2 for a path you may never use
+Net: realistic test on your server vs a heavier local install.
+Header: Docker test
+Options:
+A) Test on Linux server (recommended)
+No Docker Desktop install here; fake-client tests locally; you run Stavsboard on the Linux server for the live container check with commands I provide.
+B) Install Docker Desktop here
+Ask right before the elevated installer; live check on this PC.
+
+State: approved
+Actual answer: A) Test on Linux server (user answer to D18, 2026-11-03)
+Accepted scope: no Docker Desktop install on this PC; container code built and tested against a fake docker client here; live container check happens on your Linux server (you run the one command with --lan; I provide the exact verification steps and read the results you paste or the page over the LAN); Windows named-pipe path stays fake-tested only (recorded as a coverage limit)
+History: D1 approval to install Docker remains valid but unused under A.
+
+### R15: Swap warning definition (Windows page file, zero swap)
+Finding: OV#8, Medium, confidence 7/10, R1 record (swap amber >=50% 30s / red >=80% 30s), reviewer: outside voice
+Plan baseline: R1 (D2-A).
+Runtime evidence: psutil Windows swap is page-file based; 50% page-file use can be normal (unverified on this PC). Swap total 0 is undefined.
+Comparison grid:
+| Value | Current | A (recommended) | B | C | D |
+|---|---|---|---|---|---|
+| Swap amber | >= 50% 30s | swap >= 50% AND RAM >= 90%, for 30s | unchanged | measure on this PC first | pending |
+| Swap red | >= 80% 30s | swap >= 80% AND RAM >= 90%, for 30s | unchanged | pending | pending |
+| Swap total = 0 | undefined | no swap bar ("No swap" caption), no swap warnings | undefined | same as A | pending |
+Question D19:
+D19 — When swap counts as "heavy"
+Project/branch/task: main, logic.py swap rule (outside-voice finding 8, reopens part of D2).
+ELI10: On Windows, the "swap" number is the page file, and half-full is often normal. Alone it
+could keep your dashboard amber all day. Swap only matters when RAM is also nearly full, so A
+warns only when both are high. If a machine has no swap at all, the swap bar just says "No swap".
+Stakes if we pick wrong: a permanently amber dashboard, or a divide-by-zero on machines without swap.
+Recommendation: A because swap pressure only means trouble together with full RAM.
+Note: options differ in kind, not coverage — no completeness score.
+Pros / cons:
+A) Apply: swap counts only with RAM >= 90% (recommended)
+  ✅ No false amber from a normally used Windows page file; zero swap handled
+  ❌ Heavy swap with RAM at 85% won't warn
+B) Keep: D2 swap rule as is
+  ✅ Simple and already approved
+  ❌ May stay amber all day on Windows; zero swap still undefined
+C) Investigate before choosing
+  ✅ Read this PC's page-file numbers first (one psutil probe)
+  ❌ Rule stays open until then
+D) Defer this proposed change only
+  ✅ No change now
+  ❌ Finding stays open
+Net: pressure-based swap warning vs the simpler approved rule.
+Header: Swap rule
+Options:
+A) Apply this change (recommended)
+Swap amber when swap >= 50% AND RAM >= 90% for 30s; red when swap >= 80% AND RAM >= 90% for 30s; swap total 0 = "No swap", no swap warnings. Table tests.
+B) Keep this row's current value
+D2 rule: swap amber >= 50%, red >= 80% for 30s, independent of RAM.
+C) Investigate before choosing
+Run one psutil.swap_memory() probe on this PC now, then return to this choice. No change now.
+D) Defer this proposed change only
+Leave D2's swap rule; finding stays open.
+
+State: approved
+Actual answer: A) Apply this change (user answer to D19, 2026-11-03)
+Accepted scope: supersedes R1's swap rows: swap amber when swap >= 50% AND RAM >= 90% for 30s; red when swap >= 80% AND RAM >= 90% for 30s; swap total 0 shows "No swap" with no bar and no swap warnings; table-driven tests including total 0
+History: none
+
+### R16: Red-to-amber step down
+Finding: OV#10, Low, confidence 9/10, R1 record ("clear 10 points below the amber line"), reviewer: outside voice
+Plan baseline: R1 (D2-A).
+Runtime evidence: none.
+Comparison grid:
+| Value | Current | A (recommended) | B | C | D |
+|---|---|---|---|---|---|
+| Red -> amber | undefined | red drops to amber when 3 points below the red line for 10s | stays red until fully cleared | pending | pending |
+| Amber clear | 10 points below for 10s | unchanged | unchanged | unchanged | unchanged |
+Question D20:
+D20 — Stepping down from red to amber
+Project/branch/task: main, logic.py severity (outside-voice finding 10).
+ELI10: RAM turns red at 97%. If it then sits at 95%, the plan doesn't say whether it stays red
+or goes back to amber. A small 3-point band (below 94% for 10s) steps it down without flicker.
+Stakes if we pick wrong: red stays on when things improved, or it flickers at the line.
+Recommendation: A because the screen should reflect "better, still high" accurately.
+Note: options differ in kind, not coverage — no completeness score.
+Pros / cons:
+A) Apply: step down 3 points below for 10s (recommended)
+  ✅ Red means "critical right now"; no flicker at 97%
+  ❌ One more constant and test row
+B) Keep red until fully cleared
+  ✅ Simplest; red is sticky
+  ❌ A recovered-but-high machine still looks critical
+C) Investigate before choosing
+  ✅ None really; this is a small policy choice
+  ❌ Leaves it undefined
+D) Defer this proposed change only
+  ✅ No change now
+  ❌ Finding stays open
+Net: accurate severity vs sticky red.
+Header: Red step
+Options:
+A) Apply this change (recommended)
+Red drops to amber after 10s at least 3 points below the red line; amber clear rule unchanged; table test rows.
+B) Keep this row's current value
+Red stays until the value clears the amber rule (10 points below amber for 10s).
+C) Investigate before choosing
+No new data would help; return to this choice later. No change now.
+D) Defer this proposed change only
+Leave undefined; finding stays open.
+
+State: approved
+Actual answer: A) Apply this change (user answer to D20, 2026-11-03)
+Accepted scope: any red level steps down to amber after 10s at least 3 points (3°C for temperature) below its red line; amber clear rule unchanged; table test rows
+History: none
+
+### R17: RAM blame wording for multi-process apps
+Finding: OV#12, Low, confidence 8/10, DR4/DR5 sentence template ("chrome.exe is using 6.1 GB"), reviewer: outside voice
+Plan baseline: D5 status with blame; DR5 wraps freely.
+Runtime evidence: Chrome, Edge, Teams and Code run as many processes.
+Comparison grid:
+| Value | Current | A (recommended) | B | C | D |
+|---|---|---|---|---|---|
+| Blame unit | single process | processes grouped by name: "chrome.exe (24 processes) is using 6.1 GB" | single largest process | pending | pending |
+| Top list | per PID | per PID (unchanged) | per PID | per PID | per PID |
+Question D21:
+D21 — Blaming apps that run as many processes
+Project/branch/task: main, logic.py status sentence (outside-voice finding 12).
+ELI10: Chrome runs as dozens of small processes. Blaming the single biggest one says "chrome.exe
+is using 0.4 GB" when Chrome as a whole is using 6 GB. Grouping by name for the sentence gives
+the true answer; the top-processes list stays one row per process.
+Stakes if we pick wrong: the sentence names a misleading number or the wrong culprit.
+Recommendation: A because the sentence should say what is actually eating the memory.
+Note: options differ in kind, not coverage — no completeness score.
+Pros / cons:
+A) Apply: group by name for blame (recommended)
+  ✅ "chrome.exe (24 processes) is using 6.1 GB" is true and actionable
+  ❌ Sentence gets a few words longer (it wraps freely per DR5)
+B) Keep: single largest process
+  ✅ Matches the top row exactly
+  ❌ Understates multi-process apps, sometimes blames the wrong app
+C) Investigate before choosing
+  ✅ Could check how often this happens on your PC
+  ❌ Leaves the wording open
+D) Defer this proposed change only
+  ✅ No change now
+  ❌ Finding stays open
+Net: true app totals vs matching the top row.
+Header: Blame
+Options:
+A) Apply this change (recommended)
+Status blame sums RSS (or smoothed CPU) by process name; text "name (N processes) is using X"; single-process names stay plain; top list stays per PID; pytest rows.
+B) Keep this row's current value
+Blame the single largest process by PID.
+C) Investigate before choosing
+Count multi-process apps on this PC once, then return. No change now.
+D) Defer this proposed change only
+Leave single-process blame; finding stays open.
+
+State: approved
+Actual answer: A) Apply this change (user answer to D21, 2026-11-03)
+Accepted scope: status blame sums RSS (RAM) or smoothed CPU (CPU) by process name; text "name (N processes) is using X" when N > 1, plain name when N = 1; top list stays one row per PID; pytest rows
+History: none
+
+Approval readiness: PASS (R1 D2-A with R15 D19-A and R16 D20-A; R2 D3-A; R3 D4-A with R12 D13-A; R4 D5-A; R5 via D6 free text + D7-A; R6 D8-A; R7 D9-A; R8 D10-A; R9 D11-A; R10 D12-B; R11 D7-A superseded in part by R18 D16-A; R13 D14-A; R14 D15-A; R17 D21-A; R19 D17-B; R20 D18-A; corrections C1-C5 carried as required work for approved contracts; all user answers 2026-11-03)
+
+
+
+### Reality rows (eng phase)
+- REALITY: premise-table pass 3 premises checked (docker one_shot API 1.41 + SDK PR #3089; TrustedHostMiddleware string-only; per-process CPU >100%); unverified=1 docs/designs/stavsboard-v1.md:716
+- REALITY: already-done pass no app code exists; HEAD faaeef5 is docs/design only docs/designs/stavsboard-v1.md:708
+- REALITY: surface-check finding TrustedHostMiddleware cannot express D13's IP-literal rule; own host_allowed() approved (D8) docs/designs/stavsboard-v1.md:217
+- REALITY: binding-decisions pass D1-D14, DR1-DR17 honored; D2 (sensors) and R11 (loopback) reopened only on the user's changed-assumption answer, with new answers D17/D16 docs/designs/stavsboard-v1.md:1367
+- REALITY: numbers pass all cadences/thresholds are [estimated] policy values; Docker stats latency [re-measure after the Linux live check] docs/designs/stavsboard-v1.md:902
+- REALITY: deferred-asks pass no linked issue TODOS.md:1
+- REALITY: pr-count pass no .gstack/ship-policy.json; one PR at /ship docs/designs/stavsboard-v1.md:708
+
+### Section results
+- **1. Architecture:** 3 findings (R4 payload, R5 poller, R6 host check) + 1 scope addition (R11/R18 settings). All approved.
+- **2. Code quality:** 4 findings (R1 thresholds, R2 log retention, R3 exit trigger, R8 process CPU). All approved.
+- **3. Tests:** greenfield, 2 decisions (R9 demo server, R10 CI). Test plan artifact:
+  `~/.gstack/projects/Glances2.0/stav-main-eng-review-test-plan-20261103-031717.md`.
+- **4. Performance:** no issues (process_iter ~300 procs/s, payload ~4-8 KB per poll [estimated]).
+- **Outside voice:** native Claude Plan subagent, 12 findings: C1-C5 corrections, R12-R17 decided, OV#5 not reopened.
+
+### Architecture (final)
+```
+ psutil ──> collect.py thread (1s Accurate / 2s Low; monotonic watchdog; resume-from-sleep reset)
+              │  cpu, per-core, temp (Linux), mem, swap, procs (PID-keyed, PID 0 excluded, /cpu_count)
+              v
+ docker SDK ─> docker_poll.py thread (3s/10s; sparse list + targeted inspect; ≤8/2 stats workers)
+              │  containers, age_s, stale            ┌─ logic.py (pure): thresholds+sustain+clear,
+              v                                      │  severity step-down, warning log (100),
+           store.py (lock, version, 60-sample rings) ┼─ status sentence (grouped blame, "· N more"),
+              │                                      └─ tab title
+              v
+ browser ─ fetch every 1s/2s ─> app.py: host_allowed() ─> GET /api/snapshot[?trends=1]
+                                       └─> POST /api/settings (JSON only, Origin check) ─> mode
+ static/ (index.html, app.css, app.js, fonts) served from the package via importlib.resources
+```
+
+### Test coverage diagram (planned; greenfield, every path is a GAP until built)
+```
+CODE PATHS                                         USER FLOWS
+[+] logic.py                                       [+] Glance from phone/PC
+  ├── thresholds/sustain/clear/step-down [GAP]       ├── [GAP] calm → "All calm." (demo + live)
+  ├── swap AND-RAM rule, swap total 0   [GAP]        ├── [GAP] warning → sentence + wash + title
+  ├── container exit/restart-loop        [GAP]       ├── [GAP] Log · N expand, ongoing entries
+  ├── warning log cap 100, ongoing       [GAP]       └── [GAP] [→E2E] Trends opens populated
+  ├── status: worst-first, grouped blame [GAP]     [+] Error states
+  └── tab title forms                    [GAP]       ├── [GAP] Disconnected (server stopped)
+[+] collect.py                                       ├── [GAP] Collector stalled / wake from sleep
+  ├── process cache eviction, PID reuse  [GAP]       ├── [GAP] Docker absent / denied / stale
+  ├── 3-sample ranking, /cpu_count, PID 0 [GAP]      └── [GAP] foreign Host 400, CSRF 415/403
+  ├── watchdog stall + resume gap        [GAP]     [+] Settings
+  └── temp sensor pick / unsupported     [GAP]       └── [GAP] mode switch from LAN viewer
+[+] docker_poll.py (fake client)                   [+] Layout (demo server)
+  ├── sparse list + inspect on change    [GAP]       └── [GAP] 375/700/960/1440 × light/dark × states
+  ├── timeout / denied / absent / skip   [GAP]
+  └── CPU % of Docker capacity           [GAP]
+[+] app.py: host_allowed table, schema both forms, POST rules [GAP]
+[+] cli.py: port in use → exit 1                    [GAP]
+[+] packaging: wheel serves / + font                [GAP] [→E2E]
+COVERAGE: 0/27 paths tested (greenfield) | all planned as ★★★ unit/integration tests
+```
+
+### Failure modes (new paths)
+| Path | Realistic failure | Handling | Test | User sees |
+|---|---|---|---|---|
+| POST /api/settings | page on another site posts | JSON-only + Origin (D14) | TestClient | nothing changes |
+| docker_poll sparse list | inspect hangs on one container | per-call timeout, skip-if-busy (C3) | fake client | that row "—", others live |
+| temp sensors | no CPU-labelled sensor | null, hidden | fake dicts | no temperature |
+| packaged static | files missing from wheel | importlib.resources + wheel test (C2) | wheel smoke | (prevented) |
+| resume from sleep | false "Collector stalled" | monotonic gap reset (C4) | fake clock | brief "Connecting…" at most |
+
+0 critical gaps.
+
+### NOT in scope
+- Fan speeds, PWA manifest, Windows Docker live test: TODOS.md (P3).
+- Disk I/O, network, load average, filesystems, history on disk, auth, multi-host, external alerts, configurable thresholds: cut earlier.
+- Config file for settings: modes live in memory, `--mode` flag sets the default (R11).
+
+### What already exists
+Nothing in the repo yet. Reused, not rebuilt: psutil, docker SDK, FastAPI TestClient, stdlib
+`ipaddress` / `importlib.resources` / `concurrent.futures`, browser `fetch` and CSS container queries.
+
+### Worktree parallelization strategy
+| Step | Modules touched | Depends on |
+|---|---|---|
+| Env + scaffold (uv, pyproject, .gitignore, fonts) | repo root, static/fonts | — |
+| Pure logic | logic.py, tests/ | scaffold |
+| Collectors | collect.py, docker_poll.py, store.py, tests/ | scaffold |
+| HTTP + CLI | app.py, cli.py, tests/ | logic, collectors |
+| Frontend | static/ | payload contract (D5) |
+| Demo server + CI + README | tests/demo_server.py, .github/, README.md | HTTP + frontend |
+
+Lane A: logic. Lane B: collectors. Lane C: frontend (against the D5 contract). Then HTTP + CLI,
+then demo/CI/README. Conflict flag: `tests/` is shared; each lane owns its own test files.
+
+### Implementation Tasks (eng review)
+- [ ] **T12 (P1, human: ~1h / CC: ~5min)**: scaffold: install uv (user-level), pyproject (D9 deps), src layout, .gitignore, fonts + OFL
+  - Verify: `uv run python --version` >= 3.11; `uv run pytest` collects
+- [ ] **T13 (P1, human: ~4h / CC: ~20min)**: logic.py: D2 + D19 + D20 thresholds, D3 log, D4 exit rule, D21 blame, DR4 status, DR17 title, temperature rules (D17)
+  - Verify: table-driven pytest
+- [ ] **T14 (P1, human: ~4h / CC: ~20min)**: collect.py + store.py: D10 scale, C1 PID 0, C4 watchdog, rings, modes (R11), temperature
+  - Verify: pytest with fake psutil and fake clock
+- [ ] **T15 (P1, human: ~3h / CC: ~15min)**: docker_poll.py: D7 cadences, D13 call budget, D15 CPU %, C3 shutdown
+  - Verify: fake-client pytest; live check on the Linux server (D18)
+- [ ] **T16 (P1, human: ~3h / CC: ~15min)**: app.py + cli.py: D5 contract, D8 host_allowed, D14/D16 settings POST, C2 static, port-in-use, `--lan`, `--mode`, `--port`
+  - Verify: TestClient suite; wheel smoke test
+- [ ] **T17 (P2, human: ~2h / CC: ~10min)**: tests/demo_server.py (D11) + .github/workflows/test.yml (D12)
+  - Verify: every scenario loads; workflow runs after an approved push
+- [ ] **T18 (P2, human: ~1h / CC: ~5min)**: README: one command, `--lan` + no-auth warning (process names and refresh mode), firewall, autostart, `uvx --refresh`
+  - Verify: follow it on Windows here and on the Linux server
+
+Task JSONL not persisted: jq is not installed.
+
+### Completion summary (eng review)
+- Step 0: Scope Challenge — scope accepted as-is (structure B, 6 modules)
+- Reality rows: 7/7 applicable rows emitted, 1 unverified premise
+- Architecture Review: 3 issues found
+- Code Quality Review: 4 issues found
+- Test Review: diagram produced, 2 gaps identified (plus greenfield coverage plan)
+- Performance Review: 0 issues found
+- NOT in scope: written
+- What already exists: written
+- TODOS.md updates: 1 item proposed to user (added); sensors entry narrowed to fans after D17-B
+- Failure modes: 0 critical gaps flagged
+- Unresolved decisions: 0 in this review
+- Outside voice: native Claude Plan subagent completed (Codex not installed), 12 findings
+- Parallelization: 3 lanes, 3 parallel / 2 sequential
+- Lake Score: 3/3 (D11-A, D12-B, D17-B each picked the higher-scored option)
+
 ## GSTACK REVIEW REPORT
 
 | Review | Trigger | Why | Runs | Status | Findings |
 |--------|---------|-----|------|--------|----------|
-| CEO Review | `/plan-ceo-review` | Scope & strategy | 1 | CLEAR | mode: SCOPE_REDUCTION, 0 critical gaps |
-| Outside Review | native fallback (codex not installed) | Independent 2nd opinion | 1 | unavailable (native completed) | 12 findings (native); 12 resolved; 0 unresolved; no completed external review |
-| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 0 | — | — |
-| Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | — |
+| CEO Review | `/plan-ceo-review` | Scope & strategy | 1 | CLEAR | mode: SCOPE_REDUCTION, 0 critical gaps (D2 partly reopened by eng D17-B) |
+| Outside Review | native fallback (codex not installed) | Independent 2nd opinion | 2 | unavailable (native completed) | CEO phase: 12 findings resolved; eng phase: 12 findings, all dispositioned (C1-C5, R12-R17) |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | ISSUES OPEN (all decided) | 9 issues, 0 critical gaps |
+| Design Review | `/plan-design-review` | UI/UX gaps | 1 | CLEAR | score: 3/10 → 8/10, 17 decisions |
 | DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | — |
 
-- **OUTSIDE COVERAGE:** codex, plan-review phase: unavailable (CLI not installed). A native Claude Plan subagent completed with 12 findings, all dispositioned (4 by user decisions D11-D14, 8 by correction or by handing to eng/design review).
-- **VERDICT:** CEO CLEARED. Eng review required.
+- **OUTSIDE COVERAGE:** codex unavailable in the CEO plan-review, design and eng plan-review phases (CLI not installed). Native Claude subagents completed all three; no completed external review.
+- **VERDICT:** CEO + DESIGN CLEARED. Eng review complete: 9 issues found and every one decided by you (stored status issues_open per the counting rule), 0 unresolved, 0 critical gaps. Ready to implement.
 
 NO UNRESOLVED DECISIONS

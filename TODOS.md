@@ -1,13 +1,11 @@
 # TODOS
 
 ## Design polish left by /design-review (2026-11-03)
-- **What (all low impact):**
-  - Screen readers can't hear the non-calm dot on the "Now" tab; add hidden "(warning)" text and an `aria-label` like "Warning log, 4 entries" on "Log · N".
+- **Done (2026-11-03):** hidden "(warning)" text on the Now tab dot, `aria-label` on the Log button, one underline rule for tabs and `.seg`, 3px radius on swatches and focus ring, tabular figures on static log times, 14px Settings button.
+- **Remaining (all low impact):**
   - Motion: washes fade out with ease-out (DESIGN.md says exits use ease-in); the 150ms Now/Trends crossfade isn't implemented; the drawer closes without an exit slide.
-  - The underline control is styled three ways (tabs 400 weight / 3px offset, `.seg` 500 / 1px); merge into one rule.
-  - Off-scale details: 2px radius on swatches and on focused elements (use 3px or none), tabular figures on static log times, a 13px Settings button next to 14px tabs.
   - The cached memory segment still uses `good-soft` (1.45:1 on light ground); it has a legend, so lower priority than the core bars were.
-- **Why:** None blocks a task; together they are the last 10% of polish.
+- **Why:** None blocks a task; together they are the last bit of polish.
 - **Priority:** P3
 
 ## ~~Overlapping poll loops after a tab switch (QA ISSUE-002)~~

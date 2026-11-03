@@ -132,6 +132,7 @@
     }
     dot.className = `dot ${level === "good" ? "" : level}`.trim();
     tabdot.className = `tabdot ${level === "good" ? "" : level}`.trim();
+    text($("tabdot-sr"), level === "good" ? "" : ` (${level === "hollow" ? "disconnected" : level})`);
     text($("status-text"), sentence);
     text($("status-more"), more);
     if (liveKey !== S.liveKey) { // announce only when the situation changes, not every number
@@ -160,6 +161,7 @@
     const btn = $("log-btn");
     btn.hidden = false;
     text(btn, `Log · ${s.log.entries.length}`);
+    btn.setAttribute("aria-label", `Warning log, ${s.log.entries.length} ${s.log.entries.length === 1 ? "entry" : "entries"}`);
     btn.setAttribute("aria-expanded", String(S.logOpen));
     $("log").hidden = !S.logOpen;
     if (S.logOpen) paintLog(s);

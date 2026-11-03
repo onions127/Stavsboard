@@ -90,7 +90,7 @@ button {
   padding: 0;
   cursor: pointer;
 }
-:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 2px; }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 3px; }
 [hidden] { display: none !important; }
 .sr-only {
   position: absolute; width: 1px; height: 1px; overflow: hidden;
@@ -109,7 +109,7 @@ button {
 .bar { display: flex; align-items: baseline; gap: 20px; min-height: 28px; }
 .brand { margin: 0; font-weight: 600; font-size: 15px; line-height: inherit; }
 .tabs { display: flex; gap: 16px; font-size: 14px; }
-.tab { color: var(--text-muted); padding-bottom: 3px; border-bottom: 2px solid transparent; }
+.tab { color: var(--text-muted); font-weight: 500; padding-bottom: 1px; border-bottom: 2px solid transparent; }
 .tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); }
 .tabdot {
   display: none; width: 6px; height: 6px; border-radius: 50%; margin-left: 5px;
@@ -120,7 +120,7 @@ button {
 .tabdot.hollow { background: none; box-shadow: inset 0 0 0 1.5px var(--text-muted); }
 .textbtn { font-size: 13px; color: var(--text-muted); }
 .textbtn:hover, .tab:hover { color: var(--ink); }
-#settings-btn { margin-left: auto; }
+#settings-btn { margin-left: auto; font-size: 14px; }
 #settings-btn[aria-expanded="true"] { color: var(--ink); }
 
 /* underline pattern: CPU · RAM, theme, refresh */
@@ -169,7 +169,7 @@ button {
 .warnings .ok { color: var(--good-text); font-weight: 600; }
 .warnings .live { color: var(--warning-text); font-weight: 600; }
 .warnings .crit { color: var(--error-text); font-weight: 600; }
-.warnings .past b { color: var(--ink); font-weight: 400; }
+.warnings .past b { color: var(--ink); font-weight: 400; font-variant-numeric: tabular-nums; }
 #log-btn { font-size: 14px; }
 #log-btn[aria-expanded="true"] { color: var(--ink); }
 
@@ -219,7 +219,7 @@ button {
 .capbar .c { background: var(--good-soft); }
 .capbar .f { background: var(--track); }
 .legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12px; color: var(--text-muted); margin-top: 6px; }
-.legend b { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; }
+.legend b { display: inline-block; width: 8px; height: 8px; border-radius: 3px; margin-right: 6px; }
 .legend .u { background: var(--good); }
 .legend .c { background: var(--good-soft); }
 .legend .f { background: var(--track); }

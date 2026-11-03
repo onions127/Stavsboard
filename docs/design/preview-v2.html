@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stavsboard preview v2</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Schibsted+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ground: #E3E7E1; --ink: #1E2422; --muted: #5F6963; --track: #CDD3CC; --rule: #D3D9D2;
+    --good: #1F8A4C; --good-soft: #9CCBAE;
+    --warn: #A86F00; --warn-mark: #C98A00; --warn-wash: #F1E2B8;
+    --crit: #B4301B; --crit-mark: #C2361F; --crit-wash: #F4D5CB;
+    --serif: 'Instrument Serif', Georgia, serif;
+    --sans: 'Schibsted Grotesk', 'Segoe UI', sans-serif;
+  }
+  .dark {
+    --ground: #181C1E; --ink: #E3E6E1; --muted: #8D9691; --track: #2E3539; --rule: #272D31;
+    --good: #4CC38A; --good-soft: #2C5E45;
+    --warn: #E8B23A; --warn-mark: #E8B23A; --warn-wash: #3A2E12;
+    --crit: #FF7A5E; --crit-mark: #FF6A4D; --crit-wash: #3D1A14;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #F4F5F3; font-family: var(--sans); color: #1E2422; }
+  .page { max-width: 1320px; margin: 0 auto; padding: 28px 16px 64px; }
+  h2.sec { font-size: 18px; font-weight: 600; margin: 40px 0 12px; }
+  .note { color: #5F6963; font-size: 14px; margin: 0 0 14px; max-width: 70ch; line-height: 1.5; }
+  .frames { display: grid; gap: 24px; }
+  @media (min-width: 1150px) { .frames.two { grid-template-columns: 1fr 375px; align-items: start; } }
+
+  .app { background: var(--ground); color: var(--ink); border-radius: 12px; padding: 24px 28px 28px; }
+  .bar { display: flex; align-items: baseline; gap: 20px; }
+  .brand { font-weight: 600; font-size: 15px; }
+  .tabs { display: flex; gap: 16px; font-size: 14px; }
+  .tabs span { color: var(--muted); padding-bottom: 3px; }
+  .tabs span.on { color: var(--ink); border-bottom: 2px solid var(--ink); }
+  .theme { margin-left: auto; font-size: 13px; color: var(--muted); }
+
+  /* top: status + warnings */
+  .top { margin: 22px 0 8px; }
+  .status { font-family: var(--serif); font-size: 34px; line-height: 1.15; display: flex; gap: 12px; align-items: baseline; margin: 0 0 10px; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; transform: translateY(-4px); }
+  .dot.good { background: var(--good); } .dot.warn { background: var(--warn-mark); }
+  .warnings { display: flex; flex-wrap: wrap; gap: 6px 22px; font-size: 14px; color: var(--muted); }
+  .warnings .live { color: var(--warn); font-weight: 600; }
+  .warnings .ok { color: var(--good); font-weight: 500; }
+  .warnings b { font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+  /* gauges row */
+  .gauges { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; padding: 24px 0 28px; border-bottom: 1px solid var(--rule); }
+  .gauge { display: flex; gap: 22px; align-items: center; }
+  .gauge h3 { margin: 0 0 4px; font-size: 13px; font-weight: 500; color: var(--muted); }
+  .num { font-size: 52px; font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+  .warn-txt { color: var(--warn); }
+  .sub { font-size: 14px; color: var(--muted); margin-top: 6px; }
+  svg .track { stroke: var(--track); }
+  svg .good { stroke: var(--good); } svg .warn { stroke: var(--warn-mark); }
+  .skyline { display: flex; align-items: flex-end; gap: 3px; height: 34px; margin-top: 14px; width: 168px; }
+  .skyline i { flex: 1; border-radius: 3px 3px 1px 1px; background: var(--good-soft); }
+  .skyline i.hot { background: var(--warn-mark); }
+  .swap { margin-top: 12px; width: 168px; }
+  .swap .line { height: 6px; border-radius: 3px; background: var(--track); overflow: hidden; }
+  .swap .line span { display: block; height: 100%; border-radius: 3px; background: var(--good); }
+  .swap .line span.warn { background: var(--warn-mark); }
+  .swap .cap { font-size: 12px; color: var(--muted); margin-top: 5px; }
+  .gauge.alarm { background: var(--warn-wash); border-radius: 10px; padding: 14px 16px; margin: -14px -16px; }
+
+  /* lists */
+  .lists { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; padding-top: 22px; }
+  .lists h3 { margin: 0 0 8px; font-size: 13px; font-weight: 500; color: var(--muted); display: flex; justify-content: space-between; }
+  .seg { display: flex; gap: 10px; } .seg span.on { color: var(--ink); border-bottom: 2px solid var(--ink); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  td { padding: 7px 0; } tr + tr td { border-top: 1px solid var(--rule); }
+  td.n { text-align: right; width: 70px; font-variant-numeric: tabular-nums; }
+  td.m { color: var(--muted); }
+  .ctr { display: flex; align-items: center; gap: 8px; }
+  .ctr .d { width: 8px; height: 8px; border-radius: 50%; background: var(--good); }
+  .ctr .d.off { background: var(--crit-mark); }
+  .exited { color: var(--crit); font-weight: 600; }
+
+  /* phone */
+  .phone { padding: 20px 18px 22px; }
+  .phone .status { font-size: 28px; }
+  .phone .gauges, .phone .lists { grid-template-columns: 1fr; gap: 22px; }
+  .phone .num { font-size: 44px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<h2 class="sec">A. All calm (light, desktop)</h2>
+<p class="note">The green status mark and green CPU and memory graphics mean healthy. The per-core bars show load as soft varying heights instead of a grid of tiles. There are no card boxes; sections sit on one surface, separated by space and a single rule.</p>
+<div class="app">
+  <div class="bar"><span class="brand">Stavsboard</span><div class="tabs"><span class="on">Now</span><span>Trends</span></div><span class="theme">Light · Dark</span></div>
+  <div class="top">
+    <div class="status"><span class="dot good"></span><span>All calm.</span></div>
+    <div class="warnings"><span class="ok">No active warnings</span><span>Last: CPU hit <b>97%</b> at <b>03:14</b> for 4 min</span><span>Watching since <b>09:12</b></span></div>
+  </div>
+  <div class="gauges">
+    <div class="gauge">
+      <svg width="132" height="132" viewBox="0 0 132 132"><g transform="rotate(135 66 66)" fill="none" stroke-width="10" stroke-linecap="round">
+        <circle class="track" cx="66" cy="66" r="52" stroke-dasharray="245 327"/>
+        <circle class="good" cx="66" cy="66" r="52" stroke-dasharray="29 327"/></g></svg>
+      <div><h3>CPU</h3><div class="num">12%</div><div class="sub">16 cores</div>
+        <div class="skyline"><i style="height:30%"></i><i style="height:18%"></i><i style="height:42%"></i><i style="height:22%"></i><i style="height:15%"></i><i style="height:26%"></i><i style="height:12%"></i><i style="height:35%"></i><i style="height:20%"></i><i style="height:14%"></i><i style="height:28%"></i><i style="height:16%"></i><i style="height:24%"></i><i style="height:12%"></i><i style="height:19%"></i><i style="height:22%"></i></div></div>
+    </div>
+    <div class="gauge">
+      <svg width="132" height="132" viewBox="0 0 132 132"><g transform="rotate(-90 66 66)" fill="none" stroke-width="14">
+        <circle class="track" cx="66" cy="66" r="50"/>
+        <circle class="good" cx="66" cy="66" r="50" stroke-dasharray="151 315" stroke-linecap="round"/></g></svg>
+      <div><h3>Memory</h3><div class="num">48%</div><div class="sub">7.7 of 16 GB</div>
+        <div class="swap"><div class="line"><span style="width:5%"></span></div><div class="cap">Swap 0.2 of 4 GB</div></div></div>
+    </div>
+  </div>
+  <div class="lists">
+    <div><h3><span>Top processes</span><span class="seg"><span class="on">CPU</span><span>RAM</span></span></h3>
+      <table>
+        <tr><td>chrome.exe</td><td class="n">4.1%</td><td class="n m">2.3 GB</td></tr>
+        <tr><td>Code.exe</td><td class="n">2.6%</td><td class="n m">1.1 GB</td></tr>
+        <tr><td>Docker Desktop</td><td class="n">1.9%</td><td class="n m">0.9 GB</td></tr>
+        <tr><td>Discord</td><td class="n">0.8%</td><td class="n m">0.4 GB</td></tr>
+        <tr><td>explorer.exe</td><td class="n">0.4%</td><td class="n m">0.2 GB</td></tr>
+      </table></div>
+    <div><h3><span>Containers</span><span>2 running</span></h3>
+      <table>
+        <tr><td><span class="ctr"><span class="d"></span>postgres</span></td><td class="n">0.6%</td><td class="n m">212 MB</td></tr>
+        <tr><td><span class="ctr"><span class="d"></span>redis</span></td><td class="n">0.1%</td><td class="n m">18 MB</td></tr>
+      </table></div>
+  </div>
+</div>
+
+<h2 class="sec">B. Something is wrong (dark desktop + phone)</h2>
+<p class="note">A metric in trouble turns its graphic and number amber and gets a soft amber wash. The warning sits at the top, live. A container that exited is called out in red. Everything else stays calm.</p>
+<div class="frames two">
+<div class="app dark">
+  <div class="bar"><span class="brand">Stavsboard</span><div class="tabs"><span class="on">Now</span><span>Trends</span></div><span class="theme">Light · Dark</span></div>
+  <div class="top">
+    <div class="status"><span class="dot warn"></span><span>Memory is high: chrome.exe is using 6.1 GB.</span></div>
+    <div class="warnings"><span class="live">RAM above 90% since 14:02 (ongoing)</span><span>CPU hit <b>97%</b> at <b>03:14</b> for 4 min</span><span>Watching since <b>09:12</b></span></div>
+  </div>
+  <div class="gauges">
+    <div class="gauge">
+      <svg width="132" height="132" viewBox="0 0 132 132"><g transform="rotate(135 66 66)" fill="none" stroke-width="10" stroke-linecap="round">
+        <circle class="track" cx="66" cy="66" r="52" stroke-dasharray="245 327"/>
+        <circle class="good" cx="66" cy="66" r="52" stroke-dasharray="56 327"/></g></svg>
+      <div><h3>CPU</h3><div class="num">23%</div><div class="sub">16 cores · one busy</div>
+        <div class="skyline"><i style="height:30%"></i><i style="height:22%"></i><i style="height:40%"></i><i class="hot" style="height:96%"></i><i style="height:18%"></i><i style="height:26%"></i><i style="height:14%"></i><i style="height:35%"></i><i style="height:20%"></i><i style="height:16%"></i><i style="height:28%"></i><i style="height:18%"></i><i style="height:24%"></i><i style="height:12%"></i><i style="height:19%"></i><i style="height:22%"></i></div></div>
+    </div>
+    <div class="gauge alarm">
+      <svg width="132" height="132" viewBox="0 0 132 132"><g transform="rotate(-90 66 66)" fill="none" stroke-width="14">
+        <circle class="track" cx="66" cy="66" r="50"/>
+        <circle class="warn" cx="66" cy="66" r="50" stroke-dasharray="286 315" stroke-linecap="round"/></g></svg>
+      <div><h3>Memory</h3><div class="num warn-txt">91%</div><div class="sub">14.6 of 16 GB</div>
+        <div class="swap"><div class="line"><span class="warn" style="width:52%"></span></div><div class="cap">Swap 2.1 of 4 GB</div></div></div>
+    </div>
+  </div>
+  <div class="lists">
+    <div><h3><span>Top processes</span><span class="seg"><span>CPU</span><span class="on">RAM</span></span></h3>
+      <table>
+        <tr><td>chrome.exe</td><td class="n">6.1 GB</td><td class="n m">9.4%</td></tr>
+        <tr><td>Code.exe</td><td class="n">1.8 GB</td><td class="n m">2.2%</td></tr>
+        <tr><td>Docker Desktop</td><td class="n">1.2 GB</td><td class="n m">1.9%</td></tr>
+      </table></div>
+    <div><h3><span>Containers</span><span class="exited">1 exited</span></h3>
+      <table>
+        <tr><td><span class="ctr"><span class="d"></span>postgres</span></td><td class="n">0.6%</td><td class="n m">212 MB</td></tr>
+        <tr><td><span class="ctr"><span class="d off"></span>api</span></td><td class="n exited">exit 1</td><td class="n m">—</td></tr>
+      </table></div>
+  </div>
+</div>
+
+<div class="app phone">
+  <div class="bar"><span class="brand">Stavsboard</span><div class="tabs"><span class="on">Now</span><span>Trends</span></div></div>
+  <div class="top">
+    <div class="status"><span class="dot warn"></span><span>Memory is high: chrome.exe is using 6.1 GB.</span></div>
+    <div class="warnings"><span class="live">RAM above 90% since 14:02</span></div>
+  </div>
+  <div class="gauges">
+    <div class="gauge">
+      <svg width="104" height="104" viewBox="0 0 132 132"><g transform="rotate(135 66 66)" fill="none" stroke-width="11" stroke-linecap="round">
+        <circle class="track" cx="66" cy="66" r="52" stroke-dasharray="245 327"/>
+        <circle class="good" cx="66" cy="66" r="52" stroke-dasharray="56 327"/></g></svg>
+      <div><h3>CPU</h3><div class="num">23%</div><div class="sub">one core busy</div></div>
+    </div>
+    <div class="gauge alarm">
+      <svg width="104" height="104" viewBox="0 0 132 132"><g transform="rotate(-90 66 66)" fill="none" stroke-width="15">
+        <circle class="track" cx="66" cy="66" r="50"/>
+        <circle class="warn" cx="66" cy="66" r="50" stroke-dasharray="286 315" stroke-linecap="round"/></g></svg>
+      <div><h3>Memory</h3><div class="num warn-txt">91%</div><div class="sub">14.6 of 16 GB</div></div>
+    </div>
+  </div>
+  <div class="lists">
+    <div><h3><span>Top processes</span><span class="seg"><span>CPU</span><span class="on">RAM</span></span></h3>
+      <table>
+        <tr><td>chrome.exe</td><td class="n">6.1 GB</td></tr>
+        <tr><td>Code.exe</td><td class="n">1.8 GB</td></tr>
+      </table></div>
+  </div>
+</div>
+</div>
+
+</div>
+</body>
+</html>

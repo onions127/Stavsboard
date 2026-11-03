@@ -265,7 +265,13 @@
       if (!tr) {
         tr = document.createElement("tr");
         tr.innerHTML = '<td class="name"></td><td class="n"></td><td class="n m"></td>';
-        if (!S.firstPaint) tr.classList.add("enter");
+        if (!S.firstPaint) {
+          // Regression: ISSUE-001 — the fade replayed on every reorder (moving a node restarts
+          // its CSS animation). Found by /qa on 2026-11-03. Fade once, then drop the class.
+          // A timer, not animationend: hidden tabs pause animations and would never fire it.
+          tr.classList.add("enter");
+          setTimeout(() => tr.classList.remove("enter"), 200);
+        }
         S.procRows.set(p.pid, tr);
       }
       const name = p.name || `PID ${p.pid}`;

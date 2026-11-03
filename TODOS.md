@@ -1,5 +1,13 @@
 # TODOS
 
+## Overlapping poll loops after a tab switch (QA ISSUE-002)
+- **What:** Guard `poll()` in `static/app.js` so a call while a fetch is in flight doesn't start a second timer.
+- **Why:** Switching tabs, waking the page or changing the refresh mode mid-fetch can briefly double the request rate.
+- **Severity / category:** Low / Functional. Loops converge on the next tick; data is never wrong.
+- **Repro:** Open the page, switch Now ↔ Trends quickly several times, watch `/api/snapshot` requests in DevTools.
+- **Context:** Found by /qa on 2026-11-03 (main); deferred under the Standard fix tier.
+- **Priority:** P3
+
 ## Fan speeds (sensors, remainder)
 - **What:** Show fan speeds next to the CPU temperature.
 - **Why:** Answers "why is the fan loud?" more directly on Linux.

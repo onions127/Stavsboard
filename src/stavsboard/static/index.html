@@ -92,15 +92,15 @@
 
       <div class="lists solo" id="lists">
         <section class="list" aria-labelledby="procs-h">
-          <h3 class="list-h"><span id="procs-h">Top processes</span>
+          <div class="list-h"><h2 id="procs-h">Top processes</h2>
             <span class="seg" role="group" aria-label="Sort by">
               <button class="hit" data-sort="cpu" aria-pressed="true">CPU</button><span class="sep" aria-hidden="true">·</span><button class="hit" data-sort="ram" aria-pressed="false">RAM</button>
             </span>
-          </h3>
+          </div>
           <table class="rows"><tbody id="procs-body"></tbody></table>
         </section>
         <section class="list" id="sec-ctrs" aria-labelledby="ctrs-h" hidden>
-          <h3 class="list-h"><span id="ctrs-h" title="CPU is a share of Docker's CPUs">Containers</span><span id="ctrs-sum"></span></h3>
+          <div class="list-h"><h2 id="ctrs-h" title="CPU is a share of Docker's CPUs">Containers</h2><span id="ctrs-sum"></span></div>
           <p class="empty" id="ctrs-empty" hidden></p>
           <table class="rows"><tbody id="ctrs-body"></tbody></table>
         </section>

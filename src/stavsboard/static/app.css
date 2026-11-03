@@ -271,6 +271,7 @@ button {
   display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
   margin: 0 0 8px; font-size: 13px; font-weight: 500; color: var(--text-muted);
 }
+.list-h h2 { margin: 0; font: inherit; }
 .list-h .bad { color: var(--error-text); font-weight: 600; }
 .list-h .old { color: var(--warning-text); font-weight: 600; }
 .empty { margin: 0; padding: 7px 0; color: var(--text-muted); }

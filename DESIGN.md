@@ -12,7 +12,7 @@ colors:
   good: "#1F8A4C"
   good-soft: "#9CCBAE"
   good-text: "#17703D"
-  warning: "#C98A00"
+  warning: "#A87300"
   warning-text: "#8A5A00"
   warning-wash: "#F1E2B8"
   error: "#C2361F"
@@ -229,4 +229,5 @@ status wash (`warning-wash` / `error-wash`) behind a section that's in trouble.
 | 2026-11-03 | Now screen = variant B "Horizon bands" (/design-shotgun) | Wide CPU half-dial (72px number, per-core bars along base); memory used/cached/free bar + legend + swap bar. Cached segment Linux-only (psutil has none on Windows). Reference: docs/design/now-variants.html, section B |
 | 2026-11-03 | /plan-design-review DR1-DR17 applied | Half-dial + capacity bar geometry, container-query gauge sizes (52/72px), 375px budget, max-32 per-core bars, `text-muted-on-wash` (old muted failed AA on washes), segment gaps, Log · N, Trends rows, Auto/Light/Dark, tab titles, 44px hit areas. See docs/designs/stavsboard-v1.md "Design Review Amendments" |
 | 2026-11-03 | /plan-eng-review: Settings panel (Theme + Refresh mode), CPU temperature in the CPU sub-line | User asked for a low-impact/accurate refresh setting (D6/D7/D16); the monitored machine is a Linux server, so CPU temperature joined v1 (D17-B) |
+| 2026-11-03 | Per-core bars drawn in `good` (was `good-soft`); light `warning` mark #C98A00 → #A87300 | /design-review D1-A: data graphics need 3:1. Core bars were 1.45:1 (light) / 2.28:1 (dark), amber marks 2.3:1; now 3.5:1 / 7.75:1 and 3.2-3.3:1 |
 | 2026-11-03 | Settings moved from an inline panel to a right-side sidebar drawer | User: "change the settings bar to be a sidebar menu instead of clutter on the main screen" |

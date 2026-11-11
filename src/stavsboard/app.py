@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ipaddress
 import json
+from collections.abc import Iterable
 from importlib.resources import files
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -65,15 +66,23 @@ def _is_ip(name: str) -> bool:
         return False
 
 
-def host_allowed(host: str | None, lan: bool, hostname: str) -> bool:
+def normalize_host_names(names: Iterable[str]) -> frozenset[str]:
+    """--allow-host values -> lowercase names without a trailing dot (empties dropped)."""
+    return frozenset(n for n in (raw.strip().lower().rstrip(".") for raw in names) if n)
+
+
+def host_allowed(host: str | None, lan: bool, hostname: str, extra_hosts: Iterable[str] = ()) -> bool:
     """D13 DNS-rebinding guard. Without --lan: localhost, 127.0.0.1, [::1]. With --lan, also any
-    IP literal and this machine's own name (plain or .local)."""
+    IP literal and this machine's own name (plain or .local). Names passed with --allow-host
+    (e.g. a reverse proxy's name) are accepted exactly, with or without --lan."""
     if not host:
         return False
     name = _split_host(host)
     if name is None:
         return False
     if name in LOCAL_NAMES:
+        return True
+    if name in normalize_host_names(extra_hosts):
         return True
     if not lan:
         return False
@@ -88,12 +97,14 @@ def origin_matches(origin: str, host: str | None) -> bool:
     return parts.scheme in ("http", "https") and parts.netloc.lower() == host.strip().lower()
 
 
-def create_app(store: Store, *, lan: bool = False, hostname: str = "", static_dir: Path = STATIC_DIR) -> FastAPI:
+def create_app(store: Store, *, lan: bool = False, hostname: str = "", extra_hosts: Iterable[str] = (),
+               static_dir: Path = STATIC_DIR) -> FastAPI:
     app = FastAPI(title="Stavsboard", docs_url=None, redoc_url=None, openapi_url=None)
+    allowed_extra = normalize_host_names(extra_hosts)
 
     @app.middleware("http")
     async def guard(request: Request, call_next):
-        if not host_allowed(request.headers.get("host"), lan, hostname):
+        if not host_allowed(request.headers.get("host"), lan, hostname, allowed_extra):
             return PlainTextResponse("Unknown host", status_code=400)
         response = await call_next(request)
         response.headers.update(SECURITY_HEADERS)

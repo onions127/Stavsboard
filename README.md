@@ -30,6 +30,7 @@ uvx --refresh --from git+https://github.com/onions127/Stavsboard stavsboard
 |---|---|
 | `--port 8420` | Port to serve on. If it's taken, Stavsboard says so and exits. |
 | `--lan` | Also serve on your local network, so a phone or another PC can open it. |
+| `--allow-host NAME` | Also accept requests addressed to `NAME`, e.g. the name of an HTTPS reverse proxy such as Tailscale Serve (`sterver.example.ts.net`). Repeatable, and works without `--lan`. Give a bare name: no `https://`, no port. |
 | `--mode accurate` / `--mode low` | Refresh mode at start: Accurate (every second) or Low impact (every 2 seconds, lighter on the machine). You can switch it later under Settings. |
 
 ## Watching a server from another device (`--lan`)
@@ -52,6 +53,18 @@ Stavsboard never changes firewall settings. If other devices can't connect:
 - **Linux (firewalld):** `sudo firewall-cmd --add-port=8420/tcp --permanent && sudo firewall-cmd --reload`
 - **Windows:** accept the Windows Defender Firewall prompt the first time, or add an inbound
   rule for TCP port 8420.
+
+### Behind an HTTPS reverse proxy (e.g. Tailscale Serve)
+
+Stavsboard only answers requests addressed to names it knows, to block DNS-rebinding attacks.
+A proxy forwards your browser's name (like `sterver.example.ts.net`), so name it with
+`--allow-host` and leave `--lan` off, so Stavsboard listens on `127.0.0.1` only and the proxy
+is the only way in:
+
+```bash
+uvx --from git+https://github.com/onions127/Stavsboard stavsboard --allow-host sterver.example.ts.net
+sudo tailscale serve --bg --https=8443 http://127.0.0.1:8420
+```
 
 ## Containers
 

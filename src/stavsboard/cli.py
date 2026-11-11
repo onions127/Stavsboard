@@ -33,11 +33,20 @@ def _port(value: str) -> int:
     return port
 
 
+def _host_name(value: str) -> str:
+    name = value.strip().lower().rstrip(".")
+    if not name or any(c in name for c in ":/[]@ "):
+        raise argparse.ArgumentTypeError("give a bare host name like sterver.example.ts.net (no scheme or port)")
+    return name
+
+
 def parse_args(argv=None) -> argparse.Namespace:
     p = argparse.ArgumentParser(prog="stavsboard", description="A calm, read-only dashboard for this machine.")
     p.add_argument("--port", type=_port, default=DEFAULT_PORT, help=f"port to serve on (default {DEFAULT_PORT})")
     p.add_argument("--lan", action="store_true",
                    help="also serve on your local network (no login: anyone on it can view and switch refresh mode)")
+    p.add_argument("--allow-host", action="append", default=[], type=_host_name, metavar="NAME",
+                   help="extra Host name to accept, e.g. a reverse proxy's name (repeatable; works without --lan)")
     p.add_argument("--mode", choices=("accurate", "low"), default="accurate",
                    help="refresh mode at start: accurate (1s) or low (2s, lighter); change it later in Settings")
     return p.parse_args(argv)
@@ -70,8 +79,10 @@ def main(argv=None) -> int:
     docker_poller.start()
 
     hostname = socket.gethostname()
-    app = create_app(store, lan=args.lan, hostname=hostname)
+    app = create_app(store, lan=args.lan, hostname=hostname, extra_hosts=args.allow_host)
     print(f"Stavsboard is running at http://localhost:{args.port}")
+    if args.allow_host:
+        print(f"Also accepting requests for: {', '.join(args.allow_host)}")
     if args.lan:
         print(f"On your network: http://{hostname}:{args.port} or http://<this machine's IP>:{args.port}")
         print("Note: there is no login. Anyone on your network can see process names and switch refresh mode.")

@@ -42,6 +42,49 @@ def test_host_allowed(host, lan, ok):
     assert host_allowed(host, lan, "MyServer") is ok
 
 
+PROXY = "sterver.tail24d7a.ts.net"
+
+
+@pytest.mark.parametrize("lan", [False, True])
+@pytest.mark.parametrize(
+    "host, ok",
+    [
+        (f"{PROXY}:8443", True),
+        (PROXY, True),
+        ("STERVER.TAIL24D7A.TS.NET.:8443", True),
+        (f"{PROXY}.evil.com", False),
+        ("other.tail24d7a.ts.net", False),
+        ("tail24d7a.ts.net", False),
+        ("attacker.example", False),
+        ("localhost:8420", True),
+    ],
+)
+def test_allow_host_names(host, lan, ok):
+    assert host_allowed(host, lan, "sterver", [PROXY]) is ok
+    # extras are normalized the same way as the Host header
+    assert host_allowed(host, lan, "sterver", [" Sterver.Tail24d7a.TS.net. "]) is ok
+
+
+def test_allow_host_does_not_open_other_names():
+    assert host_allowed("attacker.example", False, "box", ["other.name"]) is False
+    assert host_allowed("192.168.1.20", False, "box", [PROXY]) is False  # IPs still need --lan
+    assert host_allowed("anything", False, "box", ["", "  ", "."]) is False
+
+
+def test_reverse_proxy_name_end_to_end():
+    """Tailscale Serve-style: loopback bind, no --lan, Host and Origin carry the proxy name."""
+    store = Store()
+    app = create_app(store, lan=False, hostname="sterver", extra_hosts=[PROXY])
+    client = TestClient(app, base_url=f"https://{PROXY}:8443", client=("127.0.0.1", 50000))
+    assert client.get("/").status_code == 200
+    assert client.get("/api/snapshot").status_code == 200
+    r = client.post("/api/settings", json={"mode": "low"}, headers={"origin": f"https://{PROXY}:8443"})
+    assert r.status_code == 200 and store.mode == "low"
+    r = client.post("/api/settings", json={"mode": "accurate"}, headers={"origin": "https://evil.example"})
+    assert r.status_code == 403 and store.mode == "low"
+    assert client.get("/api/snapshot", headers={"host": "attacker.example"}).status_code == 400
+
+
 @pytest.fixture
 def setup():
     clock = Clock()

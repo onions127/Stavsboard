@@ -38,6 +38,18 @@ def test_flags():
         cli.parse_args(["--mode", "turbo"])
 
 
+def test_allow_host_flag():
+    assert cli.parse_args([]).allow_host == []
+    args = cli.parse_args(["--allow-host", "Sterver.Tail24d7a.ts.net.", "--allow-host", "dash.example"])
+    assert args.allow_host == ["sterver.tail24d7a.ts.net", "dash.example"] and not args.lan
+
+
+@pytest.mark.parametrize("bad", ["", "https://x.ts.net", "x.ts.net:8443", "[::1]", "a b"])
+def test_allow_host_rejects_non_names(bad):
+    with pytest.raises(SystemExit):
+        cli.parse_args(["--allow-host", bad])
+
+
 @pytest.mark.skipif(shutil.which("uv") is None, reason="needs uv")
 def test_wheel_installs_and_serves_page_and_font(tmp_path):
     """C2: the installed wheel (what uvx runs) must carry the static files."""

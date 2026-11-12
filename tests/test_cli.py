@@ -88,6 +88,11 @@ def test_wheel_installs_and_serves_page_and_font(tmp_path):
         assert font[:4] == b"wOF2"
         snap = urllib.request.urlopen(base + "/api/snapshot", timeout=5).read()
         assert b'"status"' in snap
+        # installable-app files ship in the wheel too
+        assert b"stavsboard-shell" in urllib.request.urlopen(base + "/sw.js", timeout=5).read()
+        icon = urllib.request.urlopen(base + "/static/icons/icon-maskable-512.png", timeout=5).read()
+        assert icon[:4] == bytes([0x89]) + b"PNG"
+        assert urllib.request.urlopen(base + "/static/manifest.webmanifest", timeout=5).status == 200
     finally:
         proc.terminate()
         proc.wait(10)

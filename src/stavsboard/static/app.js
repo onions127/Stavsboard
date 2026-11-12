@@ -26,6 +26,7 @@
     procRows: new Map(),
     trendRows: new Map(),
     firstPaint: true,
+    unreachable: false, // no data yet and the last poll failed (e.g. phone off the VPN)
   };
 
   // ---- formatting -------------------------------------------------------------------------
@@ -51,7 +52,7 @@
 
   // ---- connection state ----------------------------------------------------------------------
   function connection() {
-    if (!S.snap) return "loading";
+    if (!S.snap) return S.unreachable ? "unreachable" : "loading";
     if (performance.now() - S.lastOk > DISCONNECTED_MS) return "disconnected";
     if (S.stalledPolls >= 2) return "stalled"; // two polls in a row, so a wake-up blip isn't a stall
     return "live";
@@ -71,14 +72,16 @@
       const snap = await r.json();
       if (seq !== S.seq) return;
       S.snap = snap;
+      S.unreachable = false;
       S.lastOk = performance.now();
       S.stalledPolls = snap.stalled ? S.stalledPolls + 1 : 0;
       render();
     } catch {
-      if (seq === S.seq) paintConnection();
+      if (seq === S.seq) { S.unreachable = true; paintConnection(); }
     } finally {
       clearTimeout(abort);
-      if (seq === S.seq) {
+      // Hidden (app in the background, screen off): stop polling; becoming visible polls at once.
+      if (seq === S.seq && document.visibilityState !== "hidden") {
         clearTimeout(S.timer);
         S.timer = setTimeout(poll, (S.snap?.interval_s ?? 1) * 1000);
       }
@@ -103,7 +106,7 @@
   function paintConnection() {
     const state = connection();
     const app = $("app");
-    app.classList.toggle("is-loading", state === "loading");
+    app.classList.toggle("is-loading", state === "loading" || state === "unreachable");
     app.classList.toggle("is-stale", state === "disconnected" || state === "stalled");
     const dot = $("status-dot");
     const tabdot = $("tabdot");
@@ -120,6 +123,9 @@
       if (state === "loading") {
         sentence = "Connecting…";
         title = "Stavsboard";
+      } else if (state === "unreachable") {
+        sentence = "Can't reach the server. Check your connection or VPN.";
+        title = "○ Can't reach · Stavsboard";
       } else if (state === "disconnected") {
         const age = Math.round((performance.now() - S.lastOk) / 1000 + (S.snap.collected_age_s || 0));
         sentence = `Disconnected, data ${age}s old`;
@@ -475,6 +481,11 @@
   function applyTheme(choice) {
     if (choice === "light" || choice === "dark") document.documentElement.setAttribute("data-theme", choice);
     else document.documentElement.removeAttribute("data-theme");
+    // Status bar color in the installed app: follow the forced choice, or the OS in Auto.
+    for (const m of document.querySelectorAll('meta[name="theme-color"]')) {
+      const dark = m.media.includes("dark");
+      m.content = choice === "light" ? "#E3E7E1" : choice === "dark" ? "#181C1E" : dark ? "#181C1E" : "#E3E7E1";
+    }
     for (const b of document.querySelectorAll("[data-theme-opt]")) b.setAttribute("aria-pressed", String(b.dataset.themeOpt === choice));
   }
   for (const b of document.querySelectorAll("[data-theme-opt]")) {
@@ -509,5 +520,11 @@
   });
   setInterval(() => { if (connection() !== "live") paintConnection(); }, 1000);
 
-  poll();
+  // Installed-app shortcut (and plain links) can open on a tab: /?tab=trends
+  if (new URLSearchParams(location.search).get("tab") === "trends") selectTab("trends");
+  else poll();
+
+  // Lets phones install Stavsboard as an app and open it without the network. Needs HTTPS
+  // (or localhost); on plain-http LAN addresses the browser simply has no serviceWorker.
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 })();

@@ -175,3 +175,54 @@ def test_settings_body_is_capped(setup):
     big = '{"mode":"low","pad":"' + "x" * 5000 + '"}'
     r = client.post("/api/settings", content=big, headers={"content-type": "application/json"})
     assert r.status_code == 413 and store.mode == "accurate"
+
+
+# ---- installable app (PWA) ------------------------------------------------------------------
+
+
+def test_manifest_is_installable(setup):
+    client, _ = setup
+    r = client.get("/static/manifest.webmanifest")
+    assert r.status_code == 200 and r.headers["content-type"].startswith("application/manifest+json")
+    m = r.json()
+    assert m["display"] == "standalone" and m["start_url"] == m["scope"] == "../"
+    purposes = {i["purpose"]: i for i in m["icons"]}
+    assert {"any", "maskable", "monochrome"} <= set(purposes)
+    sizes = {i["sizes"] for i in m["icons"] if i["purpose"] == "any"}
+    assert {"192x192", "512x512"} <= sizes
+    for icon in m["icons"]:  # every icon actually ships
+        res = client.get(f"/static/{icon['src']}")
+        assert res.status_code == 200 and res.content[:8] == b"\x89PNG\r\n\x1a\n", icon["src"]
+    assert m["shortcuts"][0]["url"] == "../?tab=trends"
+
+
+def test_index_links_manifest_and_theme_color(setup):
+    client, _ = setup
+    page = client.get("/").text
+    assert 'rel="manifest" href="static/manifest.webmanifest"' in page
+    assert page.count('name="theme-color"') == 2 and "viewport-fit=cover" in page
+
+
+def test_service_worker_served_from_root(setup):
+    client, _ = setup
+    r = client.get("/sw.js")
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/javascript")
+    assert r.headers["cache-control"] == "no-cache"
+    assert "frame-ancestors 'none'" in r.headers["content-security-policy"]
+    # never caches live data
+    assert "api/" in r.text and "return; // live data" in r.text
+    # still behind the Host guard
+    assert client.get("/sw.js", headers={"host": "attacker.example"}).status_code == 400
+
+
+def test_service_worker_precaches_files_that_exist(setup):
+    import re
+
+    client, _ = setup
+    sw = client.get("/sw.js").text
+    shell = re.search(r"const SHELL = \[(.*?)\];", sw, re.S).group(1)
+    paths = re.findall(r'"([^"]+)"', shell)
+    assert "./" in paths
+    for p in paths:  # one missing file makes the whole install fail
+        assert client.get("/" + p.removeprefix("./")).status_code == 200, p

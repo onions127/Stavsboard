@@ -66,6 +66,21 @@ uvx --from git+https://github.com/onions127/Stavsboard stavsboard --allow-host s
 sudo tailscale serve --bg --https=8443 http://127.0.0.1:8420
 ```
 
+### Put it on your Android phone as an app
+
+Once Stavsboard is reachable over HTTPS (for example through Tailscale Serve, above), you can
+install it like an app: home-screen icon, full screen, no browser bars.
+
+1. Keep Tailscale on: Android Settings > Network & internet > VPN > Tailscale > **Always-on
+   VPN**. Otherwise the app opens to "Can't reach the server".
+2. Open the HTTPS address **in Chrome**, then menu (⋮) > **Install app** (or **Add to home
+   screen** > Install). Chrome installs it as a real app with its own app-drawer entry.
+   Other browsers may only add a shortcut that opens in the browser.
+3. Long-press the icon for a **Trends** shortcut. Uninstall it like any other app.
+
+The app updates itself: it always loads the version the server runs. Installing needs HTTPS;
+over plain `http://` on the LAN it stays a normal web page.
+
 ## Containers
 
 If Docker is running and your user may talk to it, a Containers list appears with each

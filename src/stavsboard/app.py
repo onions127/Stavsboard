@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ipaddress
 import json
+import mimetypes
 from collections.abc import Iterable
 from importlib.resources import files
 from pathlib import Path
@@ -16,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from .store import MODES, Store
 
 STATIC_DIR = Path(str(files("stavsboard") / "static"))
+mimetypes.add_type("application/manifest+json", ".webmanifest")  # not in every OS's MIME table
 LOCAL_NAMES = {"localhost", "127.0.0.1", "::1"}
 MAX_SETTINGS_BODY = 1024  # bytes; {"mode": "accurate"} is 20
 SECURITY_HEADERS = {
@@ -140,6 +142,12 @@ def create_app(store: Store, *, lan: bool = False, hostname: str = "", extra_hos
     @app.get("/")
     def index():
         return FileResponse(static_dir / "index.html", headers={"Cache-Control": "no-cache"})
+
+    @app.get("/sw.js")
+    def service_worker():
+        # Served from the root, not /static/, so the installed app's worker covers the whole page.
+        return FileResponse(static_dir / "sw.js", media_type="text/javascript",
+                            headers={"Cache-Control": "no-cache"})
 
     app.mount("/static", RevalidatingStaticFiles(directory=static_dir), name="static")
     return app

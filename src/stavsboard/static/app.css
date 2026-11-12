@@ -243,7 +243,7 @@ button {
 
 /* stale / disconnected / loading: muted, never calm green */
 .is-stale .num, .is-loading .num { color: var(--text-muted); }
-.is-stale .dial .val { stroke: var(--text-muted); }
+.is-stale .dial .val, .is-loading .dial .val { stroke: var(--text-muted); }
 .is-stale .capbar .u, .is-stale .legend .u, .is-stale .swapline span { background: var(--text-muted); }
 .is-stale .capbar .c, .is-stale .legend .c, .is-stale .cores i { background: var(--track); }
 .is-stale .rows td, .list.is-old .rows td { color: var(--text-muted); font-weight: 400; }
@@ -318,6 +318,24 @@ button {
   .lists, .lists.solo { grid-template-columns: 1fr; gap: 22px; padding-top: 16px; }
   .log li { grid-template-columns: max-content minmax(0, 1fr); }
   .log li .d { grid-column: 2; text-align: left; }
+}
+
+/* ---- installed app: keep content clear of the notch, rounded corners and gesture bar --------- */
+@supports (padding: max(0px)) {
+  .app {
+    padding-left: max(28px, env(safe-area-inset-left));
+    padding-right: max(28px, env(safe-area-inset-right));
+    padding-bottom: max(40px, env(safe-area-inset-bottom));
+  }
+  .drawer { padding-right: max(24px, env(safe-area-inset-right)); padding-bottom: max(22px, env(safe-area-inset-bottom)); }
+  @media (max-width: 699px) {
+    .app {
+      padding-top: max(10px, env(safe-area-inset-top));
+      padding-left: max(16px, env(safe-area-inset-left));
+      padding-right: max(16px, env(safe-area-inset-right));
+      padding-bottom: max(32px, env(safe-area-inset-bottom));
+    }
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
